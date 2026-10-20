@@ -18,12 +18,12 @@ class ApiEndpointsTest extends TestCase
     {
         $this->getJson('/v1/server/time')
             ->assertOk()
-            ->assertJsonStructure(['data' => ['iso8601', 'timestampMs', 'timezone']]);
+            ->assertJsonStructure(['data' => ['timestamp', 'timezone']]);
     }
 
-    public function test_admin_system_info_requires_authentication(): void
+    public function test_removed_admin_system_info_is_not_available(): void
     {
         $this->getJson('/admin/v1/system/info')
-            ->assertUnauthorized();
+            ->assertNotFound();
     }
 }

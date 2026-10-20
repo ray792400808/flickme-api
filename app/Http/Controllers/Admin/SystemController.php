@@ -24,7 +24,7 @@ class SystemController extends Controller
             'phpVersion' => PHP_VERSION,
             'laravelVersion' => Application::VERSION,
             'timezone' => config('app.timezone'),
-            'serverTime' => now()->toIso8601String(),
+            'serverTime' => now()->getTimestamp(),
         ]]);
     }
 }

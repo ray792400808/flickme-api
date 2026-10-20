@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUnixTimestamps;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AdminAccount extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+    use HasUnixTimestamps;
 
     protected $guarded = [];
 

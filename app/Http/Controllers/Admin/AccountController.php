@@ -41,7 +41,7 @@ class AccountController extends Controller
             $token = $this->invitation($account);
             $this->audit($request, '创建账号', $account);
 
-            return ['account' => $account->fresh(), 'activationToken' => $token, 'expiresAt' => now()->addHours(24)->toIso8601String()];
+            return ['account' => $account->fresh(), 'activationToken' => $token, 'expiresAt' => now()->addHours(24)->getTimestamp()];
         });
 
         return response()->json(['data' => $result], 201);
@@ -96,7 +96,7 @@ class AccountController extends Controller
             $token = $this->invitation($locked);
             $this->audit($request, '重置密码或重发邀请', $locked);
 
-            return ['activationToken' => $token, 'expiresAt' => $locked->activation_expires_at->toIso8601String()];
+            return ['activationToken' => $token, 'expiresAt' => $locked->activation_expires_at->getTimestamp()];
         });
 
         return response()->json(['data' => $result]);

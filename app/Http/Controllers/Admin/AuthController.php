@@ -26,7 +26,7 @@ class AuthController extends Controller
         Cache::put('admin:tokens:'.hash('sha256', $token), ['id' => $account->id, 'version' => $account->token_version], $expires);
         $account->update(['last_login_at' => now()]);
 
-        return response()->json(['data' => ['accessToken' => $token, 'expiresAt' => $expires->getTimestampMs(), 'email' => $account->email]]);
+        return response()->json(['data' => ['accessToken' => $token, 'expiresAt' => $expires->getTimestamp(), 'email' => $account->email]]);
     }
 
     public function me(Request $request): JsonResponse

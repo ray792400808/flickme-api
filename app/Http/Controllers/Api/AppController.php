@@ -47,8 +47,7 @@ class AppController extends Controller
         $now = now();
 
         return response()->json(['data' => [
-            'iso8601' => $now->toIso8601String(),
-            'timestampMs' => $now->getTimestampMs(),
+            'timestamp' => $now->getTimestamp(),
             'timezone' => config('app.timezone'),
         ]]);
     }

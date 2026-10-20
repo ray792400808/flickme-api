@@ -21,7 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->convertEmptyStringsToNull(except: [fn (Request $request): bool => $request->is('admin/v1/ops/*')]);
+        $middleware->trimStrings(except: [fn (Request $request): bool => $request->is('admin/v1/ops/*')]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -1,0 +1,1791 @@
+openapi: 3.0.3
+info:
+  title: Flickme Admin API
+  version: 1.0.0
+  description: |
+    Flickme 管理后台接口定义，可直接导入 Apifox。
+    所有绝对时间统一为 Unix 秒级整数时间戳（int64），未设置时间为 null。
+    包括 created_at、updated_at、deleted_at、registered_at、published_at、expiresAt、starts_at、ends_at。
+    前端显示：new Date(timestamp * 1000)；提交：Math.floor(date.getTime() / 1000)。
+    `x-implementation-status: implemented` 表示当前 Laravel 项目已经实现；
+    `planned` 表示根据 Flickme_Admin.html 原型规划、尚待开发。
+servers:
+  - url: http://localhost:8000/admin/v1
+    description: 本地开发环境
+security:
+  - bearerAuth: []
+tags:
+  - { name: 数据概览 }
+  - { name: 内容管理/Short 剧库 }
+  - { name: 内容管理/Stories 角色库 }
+  - { name: 内容管理/AI 角色备选库 }
+  - { name: 内容管理/标签与合集 }
+  - { name: 内容管理/评论管理 }
+  - { name: 运营位/首页分类 Chips }
+  - { name: 运营位/热门池与排序 }
+  - { name: 运营位/启动弹窗 }
+  - { name: 运营位/搜索推荐词 }
+  - { name: 运营位/Stories 筛选标签 }
+  - { name: 运营位/推荐位配置 }
+  - { name: 用户管理/用户列表 }
+  - { name: 用户管理/金币调整 }
+  - { name: 商业化/会员套餐 }
+  - { name: 商业化/充值包 }
+  - { name: 商业化/优惠券 }
+  - { name: 商业化/金币规则 }
+  - { name: 商业化/订单与流水 }
+  - { name: AI 配置/模型管理 }
+  - { name: AI 配置/记忆档位 }
+  - { name: AI 配置/内容安全 }
+  - { name: 激励任务/签到奖励 }
+  - { name: 激励任务/任务配置 }
+  - { name: 激励任务/实时观看奖励 }
+  - { name: 消息与推送/推送任务 }
+  - { name: 消息与推送/Live Activity 模板 }
+  - { name: 消息与推送/通知默认与频控 }
+  - { name: 客服与反馈/反馈与举报工单 }
+  - { name: 系统设置/认证 }
+  - { name: 系统设置/系统状态 }
+  - { name: 系统设置/审批中心 }
+  - { name: 系统设置/账号管理 }
+  - { name: 系统设置/角色与权限 }
+  - { name: 系统设置/操作日志 }
+  - { name: 系统设置/协议管理 }
+
+paths:
+  /health:
+    get:
+      tags: [系统设置/系统状态]
+      summary: 管理后台健康检查
+      security: []
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /system/info:
+    get:
+      tags: [系统设置/系统状态]
+      summary: 获取服务运行信息
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /dashboard:
+    get:
+      tags: [数据概览]
+      summary: 获取管理后台数据概览
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DateFrom' }
+        - { $ref: '#/components/parameters/DateTo' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+
+  /auth/login:
+    post:
+      tags: [系统设置/认证]
+      summary: 管理员登录
+      security: []
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/LoginSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /auth/me:
+    get:
+      tags: [系统设置/认证]
+      summary: 获取当前管理员
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/ProfileSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [系统设置/认证]
+      summary: 退出登录
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/activate:
+    post:
+      tags: [系统设置/认证]
+      summary: 激活管理员账号或设置新密码
+      security: []
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivateRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /auth/refresh:
+    post:
+      tags: [系统设置/认证]
+      summary: 刷新登录令牌
+      x-implementation-status: planned
+      responses:
+        '200': { $ref: '#/components/responses/LoginSuccess' }
+  /auth/forgot-password:
+    post:
+      tags: [系统设置/认证]
+      summary: 申请重置密码
+      security: []
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/EmailRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /auth/reset-password:
+    post:
+      tags: [系统设置/认证]
+      summary: 使用重置令牌设置密码
+      security: []
+      x-implementation-status: planned
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+
+  /accounts:
+    get:
+      tags: [系统设置/账号管理]
+      summary: 管理员账号列表
+      x-implementation-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/Search' }
+        - { name: role, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [active, disabled, pending] } }
+        - { $ref: '#/components/parameters/Page' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedSuccess' }
+    post:
+      tags: [系统设置/账号管理]
+      summary: 创建管理员账号
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminAccountWrite' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /accounts/{account}:
+    parameters:
+      - { $ref: '#/components/parameters/AccountId' }
+    patch:
+      tags: [系统设置/账号管理]
+      summary: 修改管理员账号
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminAccountUpdate' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [系统设置/账号管理]
+      summary: 删除管理员账号
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /accounts/{account}/reset-password:
+    post:
+      tags: [系统设置/账号管理]
+      summary: 重置密码并生成激活令牌
+      x-implementation-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/AccountId' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+
+  /roles:
+    get:
+      tags: [系统设置/角色与权限]
+      summary: 获取角色及权限矩阵
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /roles/{role}:
+    patch:
+      tags: [系统设置/角色与权限]
+      summary: 修改角色权限
+      x-implementation-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/RoleId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RolePermissionsRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /approval-requests:
+    get:
+      tags: [系统设置/审批中心]
+      summary: 审批单列表
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/Status' }
+        - { name: resourceType, in: query, schema: { type: string } }
+        - { $ref: '#/components/parameters/Page' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedSuccess' }
+  /approval-requests/{approval}:
+    get:
+      tags: [系统设置/审批中心]
+      summary: 审批单详情及变更差异
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/ApprovalId' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /approval-requests/{approval}/approve:
+    post:
+      tags: [系统设置/审批中心]
+      summary: 审批通过
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/ApprovalId' }
+      requestBody: { $ref: '#/components/requestBodies/ReasonRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /approval-requests/{approval}/reject:
+    post:
+      tags: [系统设置/审批中心]
+      summary: 驳回审批
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/ApprovalId' }
+      requestBody: { $ref: '#/components/requestBodies/RequiredReasonRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+
+  /dramas:
+    get:
+      tags: [内容管理/Short 剧库]
+      summary: 分页查询Short 剧集
+      description: 需要 content 或 ops 的 r/rw 权限。ID 为正整数。available=1 仅返回 published、is_playable=true 且视频地址非空的剧集。
+      x-implementation-status: implemented
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: ID 精确匹配或名称包含匹配 }
+        - { name: tag_key, in: query, schema: { type: string, example: romance }, description: 按关联标签 key 筛选内容；不存在的 key 返回空列表 }
+        - { name: status, in: query, schema: { type: string, enum: [published, draft, unpublished] } }
+        - { name: available, in: query, schema: { type: boolean }, description: 通过 1/0 表示是否仅查询可用内容 }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+      responses:
+        '200':
+          description: 双层分页列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ContentDrama' }
+                      current_page: { type: integer }
+                      per_page: { type: integer }
+                      last_page: { type: integer }
+                      total: { type: integer }
+              example: {"data":{"data":[{"id":1,"name":"Development Short 01","title":"Development Short 01","status":"published","cover_url":"/test-media/cover.svg","video_url":"/test-media/sample.mp4","is_playable":true,"heat":105,"tags":[{"id":1,"key":"romance","name":"Romance","status":"active"},{"id":2,"key":"ceo","name":"Ceo","status":"active"}]}],"current_page":1,"per_page":10,"last_page":1,"total":1}}
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { description: 参数校验失败 }
+    post:
+      tags: [内容管理/Short 剧库]
+      summary: 新建 Short 剧集
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+  /dramas/{drama}:
+    parameters:
+      - { $ref: '#/components/parameters/DramaId' }
+    get:
+      tags: [内容管理/Short 剧库]
+      summary: 获取Short 剧集详情
+      description: 需要 content 或 ops 的 r/rw 权限。ID 为正整数。available=1 仅返回 published、is_playable=true 且视频地址非空的剧集。
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: 内容详情
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ContentDrama'
+              example: {"data":{"id":1,"name":"Development Short 01","title":"Development Short 01","status":"published","cover_url":"/test-media/cover.svg","video_url":"/test-media/sample.mp4","is_playable":true,"heat":105,"tags":[{"id":1,"key":"romance","name":"Romance","status":"active"},{"id":2,"key":"ceo","name":"Ceo","status":"active"}]}}
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: 记录不存在 }
+    patch:
+      tags: [内容管理/Short 剧库]
+      summary: 修改 Short 剧集
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+    delete:
+      tags: [内容管理/Short 剧库]
+      summary: 删除草稿剧集
+      x-implementation-status: planned
+      responses:
+        '200': { $ref: '#/components/responses/Deleted' }
+  /dramas/{drama}/{action}:
+    post:
+      tags: [内容管理/Short 剧库]
+      summary: 提交、审批、驳回、上架或下架剧集
+      description: action 可取 submit、approve、reject、publish、unpublish。
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DramaId' }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [submit, approve, reject, publish, unpublish] } }
+      requestBody: { $ref: '#/components/requestBodies/ReasonRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /dramas/{drama}/episodes:
+    get:
+      tags: [内容管理/Short 剧库]
+      summary: 分集列表
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DramaId' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+    post:
+      tags: [内容管理/Short 剧库]
+      summary: 新增分集
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DramaId' }
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+  /dramas/{drama}/episodes/batch:
+    post:
+      tags: [内容管理/Short 剧库]
+      summary: 批量导入分集
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DramaId' }
+      requestBody: { $ref: '#/components/requestBodies/JsonArray' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /dramas/{drama}/episodes/{episode}:
+    parameters:
+      - { $ref: '#/components/parameters/DramaId' }
+      - { $ref: '#/components/parameters/EpisodeId' }
+    patch:
+      tags: [内容管理/Short 剧库]
+      summary: 修改分集
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+    delete:
+      tags: [内容管理/Short 剧库]
+      summary: 删除分集
+      x-implementation-status: planned
+      responses:
+        '200': { $ref: '#/components/responses/Deleted' }
+  /dramas/{drama}/episodes/{episode}/video:
+    post:
+      tags: [内容管理/Short 剧库]
+      summary: 上传或替换分集视频
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DramaId' }
+        - { $ref: '#/components/parameters/EpisodeId' }
+      requestBody: { $ref: '#/components/requestBodies/FileUpload' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+  /dramas/{drama}/episodes/{episode}/published:
+    patch:
+      tags: [内容管理/Short 剧库]
+      summary: 设置分集上架状态
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DramaId' }
+        - { $ref: '#/components/parameters/EpisodeId' }
+      requestBody: { $ref: '#/components/requestBodies/EnabledRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+
+  /characters:
+    get:
+      tags: [内容管理/Stories 角色库]
+      summary: 分页查询Stories 角色
+      description: 需要 content 或 ops 的 r/rw 权限。ID 为正整数。
+      x-implementation-status: implemented
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: ID 精确匹配或名称包含匹配 }
+        - { name: tag_key, in: query, schema: { type: string, example: romance }, description: 按关联标签 key 筛选内容；不存在的 key 返回空列表 }
+        - { name: status, in: query, schema: { type: string, enum: [published, draft, unpublished] } }
+        - { name: available, in: query, schema: { type: boolean }, description: 通过 1/0 表示是否仅查询可用内容 }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+      responses:
+        '200':
+          description: 双层分页列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ContentCharacter' }
+                      current_page: { type: integer }
+                      per_page: { type: integer }
+                      last_page: { type: integer }
+                      total: { type: integer }
+              example: {"data":{"data":[{"id":1,"name":"Development Character 1","status":"published","cover_url":"/test-media/cover.svg","tags":[{"id":1,"key":"romance","name":"Romance","status":"active"}]}],"current_page":1,"per_page":10,"last_page":1,"total":1}}
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { description: 参数校验失败 }
+    post:
+      tags: [内容管理/Stories 角色库]
+      summary: 新建角色
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /characters/{character}:
+    parameters: [{ $ref: '#/components/parameters/CharacterId' }]
+    get:
+      tags: [内容管理/Stories 角色库]
+      summary: 获取Stories 角色详情
+      description: 需要 content 或 ops 的 r/rw 权限。ID 为正整数。
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: 内容详情
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ContentCharacter'
+              example: {"data":{"id":1,"name":"Development Character 1","status":"published","cover_url":"/test-media/cover.svg","tags":[{"id":1,"key":"romance","name":"Romance","status":"active"}]}}
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: 记录不存在 }
+    patch:
+      tags: [内容管理/Stories 角色库]
+      summary: 修改角色
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    delete:
+      tags: [内容管理/Stories 角色库]
+      summary: 删除草稿角色
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+  /characters/{character}/{action}:
+    post:
+      tags: [内容管理/Stories 角色库]
+      summary: 提交、审批、驳回、上架或下架角色
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/CharacterId' }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [submit, approve, reject, publish, unpublish] } }
+      requestBody: { $ref: '#/components/requestBodies/ReasonRequest' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /character-candidates:
+    get:
+      tags: [内容管理/AI 角色备选库]
+      summary: AI 角色备选列表
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Page' }]
+      responses: { '200': { $ref: '#/components/responses/PaginatedSuccess' } }
+  /dramas/{drama}/generate-characters:
+    post:
+      tags: [内容管理/AI 角色备选库]
+      summary: 从指定短剧生成角色
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/DramaId' }]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '202': { $ref: '#/components/responses/Accepted' } }
+  /dramas/generate-missing-characters:
+    post:
+      tags: [内容管理/AI 角色备选库]
+      summary: 为缺少角色的上架短剧批量生成
+      x-implementation-status: planned
+      responses: { '202': { $ref: '#/components/responses/Accepted' } }
+  /character-candidates/{candidate}/{action}:
+    post:
+      tags: [内容管理/AI 角色备选库]
+      summary: 接受、忽略或删除备选角色
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/CandidateId' }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [accept, ignore, delete] } }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /tags:
+    get:
+      tags: [内容管理/标签与合集]
+      summary: 分页查询标签
+      description: 需要 content 或 ops 的 r/rw 权限。ID 为正整数。
+      x-implementation-status: implemented
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: ID 精确匹配或名称包含匹配 }
+        - { name: tag_key, in: query, schema: { type: string, example: romance }, description: 按标签 key 精确查询 }
+        - { name: status, in: query, schema: { type: string, enum: [active, disabled] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+      responses:
+        '200':
+          description: 双层分页列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ContentTag' }
+                      current_page: { type: integer }
+                      per_page: { type: integer }
+                      last_page: { type: integer }
+                      total: { type: integer }
+              example: {"data":{"data":[{"id":1,"key":"romance","name":"Romance","status":"active"}],"current_page":1,"per_page":10,"last_page":1,"total":1}}
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { description: 参数校验失败 }
+    post:
+      tags: [内容管理/标签与合集]
+      summary: 新建标签或合集
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /tags/{tag}:
+    parameters: [{ $ref: '#/components/parameters/TagId' }]
+    get:
+      tags: [内容管理/标签与合集]
+      summary: 获取标签详情
+      description: 需要 content 或 ops 的 r/rw 权限。ID 为正整数。
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: 内容详情
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ContentTag'
+              example: {"data":{"id":1,"key":"romance","name":"Romance","status":"active"}}
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: 记录不存在 }
+    patch:
+      tags: [内容管理/标签与合集]
+      summary: 修改标签或合集
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    delete:
+      tags: [内容管理/标签与合集]
+      summary: 删除标签或合集
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+  /tags/{tag}/publish:
+    post:
+      tags: [内容管理/标签与合集]
+      summary: 发布标签或合集
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/TagId' }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /comments:
+    get:
+      tags: [内容管理/评论管理]
+      summary: 评论审核列表
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Page' }]
+      responses: { '200': { $ref: '#/components/responses/PaginatedSuccess' } }
+  /comments/{comment}:
+    get:
+      tags: [内容管理/评论管理]
+      summary: 评论详情
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/CommentId' }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    delete:
+      tags: [内容管理/评论管理]
+      summary: 删除评论
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/CommentId' }]
+      requestBody: { $ref: '#/components/requestBodies/RequiredReasonRequest' }
+      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+  /comments/{comment}/{action}:
+    post:
+      tags: [内容管理/评论管理]
+      summary: 通过或驳回评论
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/CommentId' }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [approve, reject] } }
+      requestBody: { $ref: '#/components/requestBodies/ReasonRequest' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /membership-plans:
+    get:
+      tags: [商业化/会员套餐]
+      summary: 会员套餐列表
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    post:
+      tags: [商业化/会员套餐]
+      summary: 新建会员套餐
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /membership-plans/{plan}:
+    patch:
+      tags: [商业化/会员套餐]
+      summary: 修改会员套餐
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/PlanId' }]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /membership-plans/{plan}/submit:
+    post:
+      tags: [商业化/会员套餐]
+      summary: 提交会员套餐变更审批
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/PlanId' }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /coin-packs:
+    get:
+      tags: [商业化/充值包]
+      summary: 充值包列表
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    post:
+      tags: [商业化/充值包]
+      summary: 新建充值包
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /coin-packs/{pack}:
+    patch:
+      tags: [商业化/充值包]
+      summary: 修改充值包
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/PackId' }]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    delete:
+      tags: [商业化/充值包]
+      summary: 删除充值包草稿
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/PackId' }]
+      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+  /coin-packs/{pack}/submit:
+    post:
+      tags: [商业化/充值包]
+      summary: 提交充值包变更审批
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/PackId' }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /coupons:
+    get:
+      tags: [商业化/优惠券]
+      summary: 优惠券列表
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    post:
+      tags: [商业化/优惠券]
+      summary: 新建优惠券
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /coupons/{coupon}:
+    patch:
+      tags: [商业化/优惠券]
+      summary: 修改优惠券
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/CouponId' }]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    delete:
+      tags: [商业化/优惠券]
+      summary: 删除优惠券草稿
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/CouponId' }]
+      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+  /coupons/{coupon}/submit:
+    post:
+      tags: [商业化/优惠券]
+      summary: 提交优惠券审批
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/CouponId' }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /coin-rules:
+    get:
+      tags: [商业化/金币规则]
+      summary: 获取金币规则
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    put:
+      tags: [商业化/金币规则]
+      summary: 保存金币规则草稿
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /coin-rules/submit:
+    post:
+      tags: [商业化/金币规则]
+      summary: 提交金币规则审批
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /orders:
+    get:
+      tags: [商业化/订单与流水]
+      summary: 订单与流水列表
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { name: channel, in: query, schema: { type: string, enum: [Apple, Google] } }, { $ref: '#/components/parameters/DateFrom' }, { $ref: '#/components/parameters/DateTo' }, { $ref: '#/components/parameters/Page' }]
+      responses: { '200': { $ref: '#/components/responses/PaginatedSuccess' } }
+  /orders/{order}:
+    get:
+      tags: [商业化/订单与流水]
+      summary: 订单详情
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /models:
+    get:
+      tags: [AI 配置/模型管理]
+      summary: 模型列表
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/Search' }, { name: kind, in: query, schema: { type: string, enum: [FREE, VIP] } }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Page' }]
+      responses: { '200': { $ref: '#/components/responses/PaginatedSuccess' } }
+    post:
+      tags: [AI 配置/模型管理]
+      summary: 新增模型或保存草稿
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModelWrite' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /models/{model}:
+    parameters: [{ $ref: '#/components/parameters/ModelId' }]
+    get:
+      tags: [AI 配置/模型管理]
+      summary: 模型详情
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    patch:
+      tags: [AI 配置/模型管理]
+      summary: 修改模型
+      x-implementation-status: planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ModelWrite' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    delete:
+      tags: [AI 配置/模型管理]
+      summary: 删除模型草稿
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+  /models/{model}/{action}:
+    post:
+      tags: [AI 配置/模型管理]
+      summary: 提交、审批、驳回、发布或下架模型
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/ModelId' }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [submit, approve, reject, publish, unpublish] } }
+      requestBody: { $ref: '#/components/requestBodies/ReasonRequest' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /models/{model}/enabled:
+    patch:
+      tags: [AI 配置/模型管理]
+      summary: 启用或停用模型
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/ModelId' }]
+      requestBody: { $ref: '#/components/requestBodies/EnabledRequest' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /models/{model}/new-badge:
+    patch:
+      tags: [AI 配置/模型管理]
+      summary: 设置模型 NEW 标识
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/ModelId' }]
+      requestBody: { $ref: '#/components/requestBodies/EnabledRequest' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /memory-tiers:
+    get:
+      tags: [AI 配置/记忆档位]
+      summary: 记忆档位列表
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /memory-tiers/{tier}:
+    patch:
+      tags: [AI 配置/记忆档位]
+      summary: 修改记忆档位
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/TierId' }]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /memory-tiers/submit:
+    post:
+      tags: [AI 配置/记忆档位]
+      summary: 提交记忆档位变更审批
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /content-safety:
+    get:
+      tags: [AI 配置/内容安全]
+      summary: 获取内容安全策略
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    put:
+      tags: [AI 配置/内容安全]
+      summary: 保存并发布内容安全策略
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /check-in-rewards:
+    get:
+      tags: [激励任务/签到奖励]
+      summary: 获取七日签到奖励
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    put:
+      tags: [激励任务/签到奖励]
+      summary: 保存七日签到奖励
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonArray' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /check-in-rewards/publish:
+    post:
+      tags: [激励任务/签到奖励]
+      summary: 发布签到奖励
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /tasks:
+    get:
+      tags: [激励任务/任务配置]
+      summary: 激励任务列表
+      x-implementation-status: planned
+      parameters: [{ name: group, in: query, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    post:
+      tags: [激励任务/任务配置]
+      summary: 新建激励任务
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /tasks/{task}:
+    patch:
+      tags: [激励任务/任务配置]
+      summary: 修改激励任务
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/TaskId' }]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    delete:
+      tags: [激励任务/任务配置]
+      summary: 删除激励任务
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/TaskId' }]
+      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+  /tasks/publish:
+    post:
+      tags: [激励任务/任务配置]
+      summary: 发布激励任务配置
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /watch-rewards:
+    get:
+      tags: [激励任务/实时观看奖励]
+      summary: 获取实时观看奖励配置
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    put:
+      tags: [激励任务/实时观看奖励]
+      summary: 保存实时观看奖励配置
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /push-tasks:
+    get:
+      tags: [消息与推送/推送任务]
+      summary: 推送任务列表
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/Status' }, { name: type, in: query, schema: { type: string } }, { $ref: '#/components/parameters/Page' }]
+      responses: { '200': { $ref: '#/components/responses/PaginatedSuccess' } }
+    post:
+      tags: [消息与推送/推送任务]
+      summary: 新建推送任务
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /push-tasks/{task}:
+    parameters: [{ $ref: '#/components/parameters/TaskId' }]
+    get:
+      tags: [消息与推送/推送任务]
+      summary: 推送任务详情
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    patch:
+      tags: [消息与推送/推送任务]
+      summary: 修改推送任务
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    delete:
+      tags: [消息与推送/推送任务]
+      summary: 删除推送任务草稿
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+  /push-tasks/{task}/{action}:
+    post:
+      tags: [消息与推送/推送任务]
+      summary: 提交、审批、取消推送或发送测试
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/TaskId' }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [submit, approve, cancel, send-test] } }
+      requestBody: { $ref: '#/components/requestBodies/ReasonRequest' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /live-activity-templates:
+    get:
+      tags: [消息与推送/Live Activity 模板]
+      summary: Live Activity 模板列表
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /live-activity-templates/{template}:
+    patch:
+      tags: [消息与推送/Live Activity 模板]
+      summary: 修改 Live Activity 模板
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/TemplateId' }]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /live-activity-templates/publish:
+    post:
+      tags: [消息与推送/Live Activity 模板]
+      summary: 发布 Live Activity 模板
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /notification-settings:
+    get:
+      tags: [消息与推送/通知默认与频控]
+      summary: 获取通知默认值与频控
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+    put:
+      tags: [消息与推送/通知默认与频控]
+      summary: 保存通知默认值与频控
+      x-implementation-status: planned
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /feedback:
+    get:
+      tags: [客服与反馈/反馈与举报工单]
+      summary: 反馈与举报工单列表
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/Status' }, { name: source, in: query, schema: { type: string } }, { $ref: '#/components/parameters/Page' }]
+      responses: { '200': { $ref: '#/components/responses/PaginatedSuccess' } }
+  /feedback/{feedback}:
+    get:
+      tags: [客服与反馈/反馈与举报工单]
+      summary: 工单详情
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/FeedbackId' }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /feedback/{feedback}/{action}:
+    post:
+      tags: [客服与反馈/反馈与举报工单]
+      summary: 处理或重新打开工单
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/FeedbackId' }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [resolve, reopen] } }
+      requestBody: { $ref: '#/components/requestBodies/ReasonRequest' }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+
+  /audit-logs:
+    get:
+      tags: [系统设置/操作日志]
+      summary: 操作日志列表
+      x-implementation-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+      responses: { '200': { $ref: '#/components/responses/PaginatedSuccess' } }
+
+  /legal-documents:
+    get:
+      tags: [系统设置/协议管理]
+      summary: 协议列表
+      x-implementation-status: planned
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /legal-documents/{document}:
+    get:
+      tags: [系统设置/协议管理]
+      summary: 协议及版本列表
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/DocumentId' }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /legal-documents/{document}/versions:
+    post:
+      tags: [系统设置/协议管理]
+      summary: 上传协议新版本
+      x-implementation-status: planned
+      parameters: [{ $ref: '#/components/parameters/DocumentId' }]
+      requestBody: { $ref: '#/components/requestBodies/FileUpload' }
+      responses: { '201': { $ref: '#/components/responses/Created' } }
+  /legal-documents/{document}/versions/{version}/{action}:
+    post:
+      tags: [系统设置/协议管理]
+      summary: 发布、回退或删除协议版本
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DocumentId' }
+        - { $ref: '#/components/parameters/VersionId' }
+        - { name: action, in: path, required: true, schema: { type: string, enum: [publish, restore, delete] } }
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /legal-documents/{document}/versions/{version}/download:
+    get:
+      tags: [系统设置/协议管理]
+      summary: 下载协议版本文件
+      x-implementation-status: planned
+      parameters:
+        - { $ref: '#/components/parameters/DocumentId' }
+        - { $ref: '#/components/parameters/VersionId' }
+      responses:
+        '200':
+          description: 协议文件
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+  /ops/chips:
+    get:
+      tags: [运营位/首页分类 Chips]
+      summary: 读取草稿与发布版本
+      x-implementation-status: implemented
+      parameters:
+        - { name: channel, in: query, required: true, schema: { type: string, enum: [short, stories] } }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    put:
+      tags: [运营位/首页分类 Chips]
+      summary: 保存完整草稿
+      x-implementation-status: implemented
+      parameters:
+        - { name: channel, in: query, required: true, schema: { type: string, enum: [short, stories] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, draft]
+              properties:
+                revision: { type: integer, minimum: 1 }
+                draft: { description: 完整配置，字段遵循后端对接协议 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/chips/publish:
+    post:
+      tags: [运营位/首页分类 Chips]
+      summary: 发布已保存版本
+      x-implementation-status: implemented
+      parameters:
+        - { name: channel, in: query, required: true, schema: { type: string, enum: [short, stories] } }
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/hot:
+    get:
+      tags: [运营位/热门池与排序]
+      summary: 读取草稿与发布版本
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    put:
+      tags: [运营位/热门池与排序]
+      summary: 保存完整草稿
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, draft]
+              properties:
+                revision: { type: integer, minimum: 1 }
+                draft: { description: 完整配置，字段遵循后端对接协议 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/hot/publish:
+    post:
+      tags: [运营位/热门池与排序]
+      summary: 发布已保存版本
+      x-implementation-status: implemented
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/launch:
+    get:
+      tags: [运营位/启动弹窗]
+      summary: 读取草稿与发布版本
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    put:
+      tags: [运营位/启动弹窗]
+      summary: 保存完整草稿
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, draft]
+              properties:
+                revision: { type: integer, minimum: 1 }
+                draft: { description: 完整配置，字段遵循后端对接协议 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/launch/publish:
+    post:
+      tags: [运营位/启动弹窗]
+      summary: 发布已保存版本
+      x-implementation-status: implemented
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/words:
+    get:
+      tags: [运营位/搜索推荐词]
+      summary: 读取草稿与发布版本
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    put:
+      tags: [运营位/搜索推荐词]
+      summary: 保存完整草稿
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, draft]
+              properties:
+                revision: { type: integer, minimum: 1 }
+                draft: { description: 完整配置，字段遵循后端对接协议 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/words/publish:
+    post:
+      tags: [运营位/搜索推荐词]
+      summary: 发布已保存版本
+      x-implementation-status: implemented
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/filters:
+    get:
+      tags: [运营位/Stories 筛选标签]
+      summary: 读取草稿与发布版本
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    put:
+      tags: [运营位/Stories 筛选标签]
+      summary: 保存完整草稿
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, draft]
+              properties:
+                revision: { type: integer, minimum: 1 }
+                draft: { description: 完整配置，字段遵循后端对接协议 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/filters/publish:
+    post:
+      tags: [运营位/Stories 筛选标签]
+      summary: 发布已保存版本
+      x-implementation-status: implemented
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/recs:
+    get:
+      tags: [运营位/推荐位配置]
+      summary: 读取草稿与发布版本
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    put:
+      tags: [运营位/推荐位配置]
+      summary: 保存完整草稿
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, draft]
+              properties:
+                revision: { type: integer, minimum: 1 }
+                draft: { description: 完整配置，字段遵循后端对接协议 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /ops/recs/publish:
+    post:
+      tags: [运营位/推荐位配置]
+      summary: 发布已保存版本
+      x-implementation-status: implemented
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /users:
+    get:
+      tags: [用户管理/用户列表]
+      summary: 分页查询用户
+      x-implementation-status: implemented
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, description: 精确 UID } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [active, banned] } }
+        - { name: membership, in: query, required: false, schema: { type: string, enum: [none, weekly, monthly, yearly] } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1 } }
+        - { name: per_page, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /users/{id}:
+    get:
+      tags: [用户管理/用户列表]
+      summary: 用户详情
+      x-implementation-status: implemented
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /users/{id}/status:
+    patch:
+      tags: [用户管理/用户列表]
+      summary: 封禁或解封用户
+      x-implementation-status: implemented
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, reason, version]
+              properties:
+                status: { type: string, enum: [active, banned] }
+                reason: { type: string, minLength: 1, maxLength: 500 }
+                version: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /coin-adjustments:
+    get:
+      tags: [用户管理/金币调整]
+      summary: 金币调整申请列表
+      x-implementation-status: implemented
+      parameters:
+        - { name: uid, in: query, required: false, schema: { type: string } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [pending, approved, rejected] } }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1 } }
+        - { name: per_page, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    post:
+      tags: [用户管理/金币调整]
+      summary: 创建金币调整申请（不直接入账）
+      x-implementation-status: implemented
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uid, currency, amount, reason]
+              properties:
+                uid: { type: string }
+                currency: { type: string, enum: [member_coins, bonus] }
+                amount: { type: integer, minimum: -1000000, maximum: 1000000, description: 非零整数 }
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '201': { $ref: '#/components/responses/Created' }
+        '409': { description: 幂等键与请求内容冲突 }
+  /coin-adjustments/{id}/review:
+    post:
+      tags: [用户管理/金币调整]
+      summary: 超级管理员审核他人申请
+      x-implementation-status: implemented
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision, version]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                reason: { type: string, maxLength: 500, description: 驳回时必填 }
+                version: { type: integer, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '409': { description: 版本或幂等键冲突 }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Token
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    Search: { name: search, in: query, schema: { type: string, maxLength: 100 } }
+    Status: { name: status, in: query, schema: { type: string } }
+    DateFrom: { name: dateFrom, in: query, schema: { type: integer, format: int64, description: Unix 秒级时间戳 } }
+    DateTo: { name: dateTo, in: query, schema: { type: integer, format: int64, description: Unix 秒级时间戳 } }
+    AccountId: { name: account, in: path, required: true, schema: { type: integer } }
+    RoleId: { name: role, in: path, required: true, schema: { type: integer } }
+    ApprovalId: { name: approval, in: path, required: true, schema: { type: integer } }
+    DramaId: { name: drama, in: path, required: true, schema: { type: integer, format: int64 } }
+    EpisodeId: { name: episode, in: path, required: true, schema: { type: integer } }
+    CharacterId: { name: character, in: path, required: true, schema: { type: integer, format: int64 } }
+    CandidateId: { name: candidate, in: path, required: true, schema: { type: string } }
+    TagId: { name: tag, in: path, required: true, schema: { type: integer, format: int64 } }
+    CommentId: { name: comment, in: path, required: true, schema: { type: string } }
+    WordId: { name: word, in: path, required: true, schema: { type: string } }
+    FilterId: { name: filter, in: path, required: true, schema: { type: string } }
+    SlotId: { name: slot, in: path, required: true, schema: { type: string } }
+    UserId: { name: user, in: path, required: true, schema: { type: string } }
+    AdjustmentId: { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    PlanId: { name: plan, in: path, required: true, schema: { type: string } }
+    PackId: { name: pack, in: path, required: true, schema: { type: string } }
+    CouponId: { name: coupon, in: path, required: true, schema: { type: string } }
+    OrderId: { name: order, in: path, required: true, schema: { type: string } }
+    ModelId: { name: model, in: path, required: true, schema: { type: string } }
+    TierId: { name: tier, in: path, required: true, schema: { type: string } }
+    TaskId: { name: task, in: path, required: true, schema: { type: string } }
+    TemplateId: { name: template, in: path, required: true, schema: { type: string } }
+    FeedbackId: { name: feedback, in: path, required: true, schema: { type: string } }
+    DocumentId: { name: document, in: path, required: true, schema: { type: string } }
+    VersionId: { name: version, in: path, required: true, schema: { type: string } }
+  requestBodies:
+    JsonObject:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: true }
+    JsonArray:
+      required: true
+      content:
+        application/json:
+          schema: { type: array, items: { type: object, additionalProperties: true } }
+    EmailRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties: { email: { type: string, format: email } }
+    ReasonRequest:
+      required: false
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ReasonRequest' }
+    RequiredReasonRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: '#/components/schemas/ReasonRequest' }
+              - { required: [reason] }
+    StatusReasonRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status, reason]
+            properties:
+              status: { type: string, enum: [active, banned] }
+              reason: { type: string }
+    EnabledRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [enabled]
+            properties: { enabled: { type: boolean } }
+    FileUpload:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file]
+            properties:
+              file: { type: string, format: binary }
+              version: { type: string }
+              language: { type: string }
+              effectiveAt: { type: integer, format: int64, description: Unix 秒级时间戳 }
+  responses:
+    Success:
+      description: 请求成功
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+    Created:
+      description: 创建成功
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+    Accepted:
+      description: 已接受异步任务
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+    Deleted:
+      description: 删除成功
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties: { deleted: { type: boolean, example: true } }
+    PaginatedSuccess:
+      description: 分页列表
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PaginatedEnvelope' }
+    LoginSuccess:
+      description: 登录成功
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/LoginResult' }
+    ProfileSuccess:
+      description: 当前管理员资料
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: '#/components/schemas/AdminProfile' }
+    Unauthorized:
+      description: 未登录、令牌过期或账号不可用
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: 权限不足
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ValidationError:
+      description: 参数验证失败
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ValidationErrorEnvelope' }
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { nullable: true }
+    ErrorEnvelope:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    ValidationErrorEnvelope:
+      type: object
+      required: [message, errors]
+      properties:
+        message: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+    PaginatedEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [data, current_page, last_page, per_page, total]
+          properties:
+            data: { type: array, items: { type: object, additionalProperties: true } }
+            current_page: { type: integer }
+            last_page: { type: integer }
+            per_page: { type: integer }
+            total: { type: integer }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password, maxLength: 1024 }
+    LoginResult:
+      type: object
+      required: [accessToken, expiresAt, email]
+      properties:
+        accessToken: { type: string, example: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef }
+        expiresAt: { type: integer, format: int64, description: Unix 秒级时间戳 }
+        email: { type: string, format: email }
+    ActivateRequest:
+      type: object
+      required: [token, password, password_confirmation]
+      properties:
+        token: { type: string, minLength: 64, maxLength: 64 }
+        password: { type: string, format: password, minLength: 12, maxLength: 128 }
+        password_confirmation: { type: string, format: password }
+    AdminProfile:
+      type: object
+      required: [id, name, email, role, roleName, permissions]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, example: admin }
+        roleName: { type: string, example: 超级管理员 }
+        permissions:
+          type: object
+          additionalProperties: { type: string, enum: [r, rw] }
+    AdminAccountWrite:
+      type: object
+      required: [name, email, role_key]
+      properties:
+        name: { type: string, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254 }
+        role_key: { type: string, example: ops }
+        note: { type: string, nullable: true, maxLength: 1000 }
+    AdminAccountUpdate:
+      type: object
+      required: [name, role_key, status]
+      properties:
+        name: { type: string, maxLength: 100 }
+        role_key: { type: string }
+        status: { type: string, enum: [active, disabled, pending] }
+        note: { type: string, nullable: true, maxLength: 1000 }
+    RolePermissionsRequest:
+      type: object
+      required: [permissions]
+      properties:
+        permissions:
+          type: object
+          additionalProperties: { type: string, enum: [none, r, rw] }
+          example: { overview: r, content: rw, system: none }
+    ReasonRequest:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 1000 }
+    CoinAdjustmentRequest:
+      type: object
+      required: [uid, currency, delta, reason]
+      properties:
+        uid: { type: string }
+        currency: { type: string, enum: [member_coins, bonus] }
+        delta: { type: integer, description: 正数增加，负数扣减 }
+        reason: { type: string, maxLength: 1000 }
+    ModelWrite:
+      type: object
+      required: [name, kind, estimatedCost, costCap, enabled]
+      properties:
+        name: { type: string, maxLength: 100, example: Swing Ride }
+        kind: { type: string, enum: [FREE, VIP] }
+        estimatedCost: { type: integer, minimum: 0, example: 6 }
+        costCap: { type: integer, minimum: 0, example: 10, description: VIP 模型可填 0 表示不封顶 }
+        tagline: { type: string, maxLength: 255, example: Short · tender · slow-burn }
+        isNew: { type: boolean, default: false }
+        enabled: { type: boolean, default: true }
+    ContentTag:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        key: { type: string, example: romance }
+        name: { type: string, example: Romance }
+        status: { type: string, enum: [active, disabled] }
+    ContentCharacter:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        name: { type: string, example: Development Character 1 }
+        status: { type: string, enum: [published, draft, unpublished] }
+        cover_url: { type: string, nullable: true, example: /test-media/cover.svg }
+        tags: { type: array, items: { $ref: '#/components/schemas/ContentTag' } }
+    ContentDrama:
+      allOf:
+        - { $ref: '#/components/schemas/ContentCharacter' }
+        - type: object
+          properties:
+            title: { type: string, example: Development Short 01 }
+            is_playable: { type: boolean, example: true }
+            video_url: { type: string, nullable: true, example: /test-media/sample.mp4 }
+            heat: { type: integer, example: 105 }
+
