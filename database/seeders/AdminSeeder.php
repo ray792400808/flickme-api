@@ -155,7 +155,7 @@ class AdminSeeder extends Seeder
         );
 
         $children = [
-            ['code' => 'user.view', 'title' => '用户管理', 'path' => '/system/users', 'component' => '/system/users/index', 'icon' => 'User', 'name' => 'SystemUsers', 'sort' => 10],
+            ['code' => 'user.view', 'title' => '账户管理', 'path' => '/system/users', 'component' => '/system/users/index', 'icon' => 'User', 'name' => 'SystemUsers', 'sort' => 10],
             ['code' => 'role.view', 'title' => '角色管理', 'path' => '/system/roles', 'component' => '/system/roles/index', 'icon' => 'UserFilled', 'name' => 'SystemRoles', 'sort' => 20],
             ['code' => 'permission.view', 'title' => '权限管理', 'path' => '/system/permissions', 'component' => '/system/permissions/index', 'icon' => 'Lock', 'name' => 'SystemPermissions', 'sort' => 30],
             ['code' => 'menu.view', 'title' => '菜单管理', 'path' => '/system/menus', 'component' => '/system/menus/index', 'icon' => 'Menu', 'name' => 'SystemMenus', 'sort' => 40],

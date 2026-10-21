@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Common\ResponseDef;
 use App\Http\Controllers\Controller;
 use App\Models\AdminRole;
 use App\Services\Admin\AdminRoleService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -13,14 +13,14 @@ class AdminRoleController extends Controller
 {
     public function __construct(private readonly AdminRoleService $roleService) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
         $roles = $this->roleService->list($request->all());
 
-        return response()->json(['data' => $roles]);
+        return $this->success($roles);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:50'],
@@ -33,12 +33,12 @@ class AdminRoleController extends Controller
 
         $this->roleService->create($data);
 
-        return response()->json(['data' => ['created' => true]], 201);
+        return $this->success(['created' => true], '创建成功');
     }
 
-    public function show(AdminRole $role): JsonResponse
+    public function show(AdminRole $role)
     {
-        return response()->json(['data' => [
+        return $this->success([
             'id' => $role->id,
             'name' => $role->name,
             'slug' => $role->slug,
@@ -48,11 +48,11 @@ class AdminRoleController extends Controller
             'is_super_admin' => $role->isSuperAdmin(),
             'permission_ids' => $role->permissions()->pluck('admin_permissions.id')->all(),
             'users_count' => $role->users()->count(),
-            'created_at' => $role->created_at->toIso8601String(),
-        ]]);
+            'created_at' => $role->created_at->getTimestamp(),
+        ]);
     }
 
-    public function update(Request $request, AdminRole $role): JsonResponse
+    public function update(Request $request, AdminRole $role)
     {
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:50'],
@@ -63,33 +63,33 @@ class AdminRoleController extends Controller
             'permission_ids.*' => ['integer', 'exists:admin_permissions,id'],
         ]);
 
-        $updated = $this->roleService->update($role, $data);
-
         // 超级管理员角色不能停用
         if ($role->isSuperAdmin() && isset($data['status']) && ! $data['status']) {
-            return response()->json(['message' => '超级管理员角色不能停用'], 422);
+            return $this->error(ResponseDef::CODE_SUPER_ADMIN_PROTECTED, ResponseDef::MSG_SUPER_ADMIN_PROTECTED, 422);
         }
 
-        return response()->json(['data' => $updated]);
+        $updated = $this->roleService->update($role, $data);
+
+        return $this->success($updated, '更新成功');
     }
 
-    public function destroy(AdminRole $role): JsonResponse
+    public function destroy(AdminRole $role)
     {
         $this->roleService->delete($role);
 
-        return response()->json(['data' => ['deleted' => true]]);
+        return $this->success(['deleted' => true], '删除成功');
     }
 
-    public function users(AdminRole $role): JsonResponse
+    public function users(AdminRole $role)
     {
-        return response()->json(['data' => $role->users()
+        return $this->success($role->users()
             ->get(['id', 'name', 'email', 'status', 'login_at'])
             ->map(fn ($u) => [
                 'id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
                 'status' => $u->status,
-                'login_at' => $u->login_at?->toIso8601String(),
-            ])]);
+                'login_at' => $u->login_at,
+            ])->all());
     }
 }

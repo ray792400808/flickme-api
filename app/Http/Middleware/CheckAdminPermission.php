@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Common\ResponseDef;
+use App\Common\ResponseUtil;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,16 +22,18 @@ class CheckAdminPermission
         $user = $request->user();
 
         if (! $user) {
-            return response()->json(['message' => '未登录'], 401);
+            return ResponseUtil::unauthenticated('未登录');
         }
 
         if ($codes === [] || $user->hasPermission(...$codes)) {
             return $next($request);
         }
 
-        return response()->json([
-            'message' => '没有执行此操作的权限',
-            'required' => $codes,
-        ], 403);
+        return ResponseUtil::error(
+            ResponseDef::CODE_PERMISSION_DENIED,
+            ResponseDef::MSG_PERMISSION_DENIED,
+            403,
+            ['required' => $codes],
+        );
     }
 }

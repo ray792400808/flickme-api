@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Common\ResponseDef;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
@@ -50,7 +51,7 @@ class Handler extends ExceptionHandler
      */
     private function logSqlError(Throwable $e): void
     {
-        $traceId = function_exists('get_trace_id') ? get_trace_id() : 'N/A';
+        $traceId = $this->currentTraceId() ?? 'N/A';
 
         $log = "[{$traceId}] SQL Error: " . $e->getMessage() .
             " | Code: " . $e->getCode() .
@@ -69,58 +70,86 @@ class Handler extends ExceptionHandler
     }
 
     /**
-     * 处理API异常
+     * 处理API异常 — 统一输出 {code, message, data, trace_id}
      */
     private function handleApiException(Request $request, Throwable $e): JsonResponse
     {
-        $traceId = function_exists('get_trace_id') ? get_trace_id() : 'N/A';
-
         if ($e instanceof ValidationException) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors(),
-                'trace_id' => $traceId,
-            ], 422);
+            return $this->toJson(
+                ResponseDef::CODE_UNPROCESSABLE_ENTITY,
+                ResponseDef::MSG_UNPROCESSABLE,
+                ['errors' => $e->errors()],
+                422,
+            );
         }
 
         if ($e instanceof AuthenticationException) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthenticated',
-                'trace_id' => $traceId,
-            ], 401);
+            return $this->toJson(
+                ResponseDef::CODE_UNAUTHORIZED,
+                ResponseDef::MSG_TOKEN_INVALID,
+                null,
+                401,
+            );
         }
 
         if ($e instanceof NotFoundHttpException) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Resource not found',
-                'trace_id' => $traceId,
-            ], 404);
+            return $this->toJson(
+                ResponseDef::CODE_NOT_FOUND,
+                ResponseDef::MSG_NOT_FOUND,
+                null,
+                404,
+            );
         }
 
         if ($e instanceof HttpException) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage() ?: 'HTTP Error',
-                'trace_id' => $traceId,
-            ], $e->getStatusCode());
+            $status = $e->getStatusCode();
+            $msg = $e->getMessage() ?: (ResponseDef::MSG_SERVER_ERROR);
+
+            // abort(4xx, '业务文案') 这类场景：状态码直接用作业务 code
+            $code = $status >= 400 && $status < 600 ? $status : ResponseDef::CODE_SERVER_ERROR;
+
+            return $this->toJson($code, $msg, null, $status);
         }
 
-        // 默认错误响应（包含trace_id）
+        // 兜底 500：生产环境不外泄异常细节
         $debug = config('app.debug');
 
-        return response()->json([
-            'success' => false,
-            'message' => $debug ? $e->getMessage() : 'Internal server error',
-            'trace_id' => $traceId,
-            'debug' => $debug ? [
+        return $this->toJson(
+            ResponseDef::CODE_SERVER_ERROR,
+            $debug ? $e->getMessage() : ResponseDef::MSG_SERVER_ERROR,
+            $debug ? [
                 'exception' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $debug ? $e->getTraceAsString() : null,
+                'trace' => $e->getTraceAsString(),
             ] : null,
-        ], 500);
+            500,
+        );
+    }
+
+    /**
+     * 统一输出 {code, message, data, trace_id}
+     */
+    private function toJson(int $code, string $msg, ?array $data, int $httpStatus): JsonResponse
+    {
+        return response()->json([
+            'code' => $code,
+            'message' => $msg,
+            'data' => $data,
+            'trace_id' => $this->currentTraceId(),
+        ], $httpStatus);
+    }
+
+    /**
+     * trace_id 由 TraceIdMiddleware 写入 request attribute；
+     * CLI / 队列等无请求上下文的场景返回 null。
+     */
+    private function currentTraceId(): ?string
+    {
+        try {
+            return request()?->attributes?->get('trace_id');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

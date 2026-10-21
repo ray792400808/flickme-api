@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Common\ResponseDef;
 use App\Http\Controllers\Controller;
 use App\Models\AdminMenu;
 use App\Models\AdminUser;
 use App\Services\Admin\AdminMenuService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -14,7 +14,7 @@ class AdminAuthController extends Controller
 {
     public function __construct(private readonly AdminMenuService $menuService) {}
 
-    public function login(Request $request): JsonResponse
+    public function login(Request $request)
     {
         $data = $request->validate([
             'email' => ['required', 'email', 'max:100'],
@@ -27,44 +27,44 @@ class AdminAuthController extends Controller
         $valid = Hash::check($data['password'], $user?->password ?? '$2y$12$'.str_repeat('.', 53));
 
         if (! $user || ! $valid) {
-            return response()->json(['message' => '邮箱或密码错误'], 401);
+            return $this->error(ResponseDef::CODE_LOGIN_FAILED, ResponseDef::MSG_LOGIN_FAILED, 401);
         }
 
         if (! $user->status) {
-            return response()->json(['message' => '账号已被禁用，请联系超级管理员'], 403);
+            return $this->error(ResponseDef::CODE_ACCOUNT_DISABLED, ResponseDef::MSG_ACCOUNT_DISABLED, 403);
         }
 
         if (! $user->roles()->exists()) {
-            return response()->json(['message' => '账号尚未分配角色，无法登录'], 403);
+            return $this->error(ResponseDef::CODE_ACCOUNT_NOT_ROLED, ResponseDef::MSG_ACCOUNT_NOT_ROLED, 403);
         }
 
         $token = $user->issueToken();
         $user->forceFill(['login_at' => time(), 'login_ip' => $request->ip()])->save();
 
-        return response()->json(['data' => array_merge($token, ['user' => $this->profile($user)])]);
+        return $this->success(array_merge($token, ['user' => $this->profile($user)]), '登录成功');
     }
 
-    public function me(Request $request): JsonResponse
+    public function me(Request $request)
     {
-        return response()->json(['data' => $this->profile($request->user()->fresh('roles'))]);
+        return $this->success($this->profile($request->user()->fresh('roles')));
     }
 
     /**
      * 独立拉取菜单路由，前端可用于刷新侧边栏
      */
-    public function menus(Request $request): JsonResponse
+    public function menus(Request $request)
     {
-        return response()->json(['data' => $this->menuTree($request->user())]);
+        return $this->success($this->menuTree($request->user()));
     }
 
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request)
     {
         $request->user()->revokeToken((string) $request->attributes->get('admin_token'));
 
-        return response()->json(['data' => ['logged_out' => true]]);
+        return $this->success(['logged_out' => true], '已退出登录');
     }
 
-    public function changePassword(Request $request): JsonResponse
+    public function changePassword(Request $request)
     {
         $data = $request->validate([
             'old_password' => ['required', 'string'],
@@ -72,19 +72,19 @@ class AdminAuthController extends Controller
         ]);
 
         if (! Hash::check($data['old_password'], $request->user()->password)) {
-            return response()->json(['message' => '原密码不正确'], 422);
+            return $this->error(ResponseDef::CODE_OLD_PASSWORD_ERROR, ResponseDef::MSG_OLD_PASSWORD_ERROR, 422);
         }
 
         $request->user()->forceFill(['password' => $data['password']])->save();
         $request->user()->bumpSessionEpoch();
 
-        return response()->json(['data' => ['password_changed' => true]]);
+        return $this->success(['password_changed' => true], '密码已修改');
     }
 
     /**
      * 刷新令牌，同时返回最新权限（权限变更后无需重新登录）
      */
-    public function refresh(Request $request): JsonResponse
+    public function refresh(Request $request)
     {
         $user = $request->user();
         $oldToken = (string) $request->attributes->get('admin_token');
@@ -92,7 +92,7 @@ class AdminAuthController extends Controller
         $token = $user->issueToken();
         $user->revokeToken($oldToken);
 
-        return response()->json(['data' => array_merge($token, ['user' => $this->profile($user->fresh('roles'))])]);
+        return $this->success(array_merge($token, ['user' => $this->profile($user->fresh('roles'))]));
     }
 
     // ─── 内部 ───────────────────────────────────────────────
@@ -114,7 +114,8 @@ class AdminAuthController extends Controller
             ])->all(),
             'permissions' => $user->cachedPermissionCodes(),
             'menus' => $this->menuTree($user),
-            'login_at' => $user->login_at ? date('c', $user->login_at) : null,
+            // Unix 秒（秒级），与列表接口保持一致
+            'login_at' => $user->login_at ? (int) $user->login_at : null,
         ];
     }
 
