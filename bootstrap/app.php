@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         then: function (): void {
             Route::middleware('api')
-                ->prefix('admin/v1')
+                ->prefix('admin')
                 ->name('admin.api.')
                 ->group(base_path('routes/admin.php'));
         },
@@ -23,9 +23,15 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->convertEmptyStringsToNull(except: [fn (Request $request): bool => $request->is('admin/v1/ops/*')]);
         $middleware->trimStrings(except: [fn (Request $request): bool => $request->is('admin/v1/ops/*')]);
+
+        // 全局中间件
+        $middleware->api(prepend: [
+            \App\Http\Middleware\TraceIdMiddleware::class,
+            \App\Http\Middleware\RequestLogMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request): bool => $request->is('v1/*', 'admin/v1/*') || $request->expectsJson(),
+            fn (Request $request): bool => $request->is('v1/*', 'admin/*') || $request->expectsJson(),
         );
     })->create();

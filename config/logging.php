@@ -1,5 +1,6 @@
 <?php
 
+use App\Logging\SqlErrorHandler;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -133,6 +134,40 @@ return [
 
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
+        ],
+
+        // 请求访问日志
+        'access' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/access.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'max_files' => 30,
+            'replace_placeholders' => true,
+        ],
+
+        // SQL日志
+        'sql' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/sql.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'max_files' => 14,
+            'replace_placeholders' => true,
+        ],
+
+        // SQL慢查询日志
+        'sql_slow' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/sql_slow.log'),
+            'level' => 'warning',
+            'max_files' => 30,
+            'replace_placeholders' => true,
+        ],
+
+        // SQL错误日志
+        'sql_error' => [
+            'driver' => 'custom',
+            'via' => SqlErrorHandler::class,
+            'days' => 30,
         ],
 
     ],

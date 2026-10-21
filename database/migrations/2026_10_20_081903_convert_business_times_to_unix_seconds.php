@@ -10,7 +10,6 @@ return new class extends Migration
 {
     private const FIELDS = [
         'users' => ['created_at', 'updated_at', 'deleted_at', 'email_verified_at'],
-        'admin_accounts' => ['created_at', 'updated_at', 'deleted_at', 'activation_expires_at', 'last_login_at'],
         'admin_roles' => ['created_at', 'updated_at'],
         'admin_audit_logs' => ['created_at'],
         'tags' => ['created_at', 'updated_at', 'deleted_at'],
@@ -39,7 +38,13 @@ return new class extends Migration
     private function convert(bool $toSeconds): void
     {
         foreach (self::FIELDS as $table => $fields) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
             foreach ($fields as $field) {
+                if (!Schema::hasColumn($table, $field)) {
+                    continue;
+                }
                 $temp = $field.'_converted';
                 if (! Schema::hasColumn($table, $temp)) {
                     Schema::table($table, function (Blueprint $blueprint) use ($temp, $toSeconds): void {
@@ -86,11 +91,14 @@ return new class extends Migration
     private function convertDocuments(bool $toSeconds): void
     {
         foreach (['operation_configs' => ['draft', 'published'], 'admin_idempotency_keys' => ['result'], 'admin_audit_logs' => ['details']] as $table => $fields) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
             DB::table($table)->orderBy('id')->chunkById(250, function ($rows) use ($table, $fields, $toSeconds): void {
                 foreach ($rows as $row) {
                     $updates = [];
                     foreach ($fields as $field) {
-                        if ($row->{$field} !== null) {
+                        if (Schema::hasColumn($table, $field) && $row->{$field} !== null) {
                             $updates[$field] = json_encode($this->convertValues(json_decode($row->{$field}, true, flags: JSON_THROW_ON_ERROR), $toSeconds), JSON_THROW_ON_ERROR);
                         }
                     }

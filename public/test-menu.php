@@ -1,0 +1,1 @@
+<?php require_once "/var/www/html/vendor/autoload.php"; $app = require_once "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); $user = App\Models\AdminUser::with("roles")->find(1); echo "User: ".$user->name." isSuperAdmin:".($user->isSuperAdmin()?"YES":"NO")."\n"; echo "Menu IDs: ".json_encode($user->accessibleMenuIds())."\n"; 

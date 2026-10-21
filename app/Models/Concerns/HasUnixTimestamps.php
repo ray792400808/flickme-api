@@ -7,25 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 
 trait HasUnixTimestamps
 {
+    /**
+     * 返回 Unix 时间戳格式
+     */
     public function getDateFormat(): string
     {
         return 'U';
     }
 
-    public function initializeHasUnixTimestamps(): void
-    {
-        $this->mergeCasts(['created_at' => 'datetime', 'updated_at' => 'datetime', 'deleted_at' => 'datetime']);
-    }
-
-    public static function bootHasUnixTimestamps(): void
-    {
-        static::creating(function (Model $model): void {
-            if (! $model->usesTimestamps() && $model->getAttribute('created_at') === null) {
-                $model->setAttribute('created_at', now());
-            }
-        });
-    }
-
+    /**
+     * 序列化日期为 Unix 时间戳
+     */
     protected function serializeDate(DateTimeInterface $date): int
     {
         return $date->getTimestamp();
