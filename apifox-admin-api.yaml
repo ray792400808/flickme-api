@@ -1343,7 +1343,8 @@ paths:
         '422': { $ref: '#/components/responses/ValidationError' }
     put:
       tags: [运营位/搜索推荐词]
-      summary: 保存完整草稿
+      summary: 保存完整草稿，支持逐条 sort 和 status
+      description: sort 升序且同值稳定排序；status 取 draft 或 published。保存不会更改线上快照。
       x-implementation-status: implemented
       requestBody:
         required: true
@@ -1354,7 +1355,9 @@ paths:
               required: [revision, draft]
               properties:
                 revision: { type: integer, minimum: 1 }
-                draft: { description: 完整配置，字段遵循后端对接协议 }
+                draft:
+                  type: array
+                  items: { $ref: '#/components/schemas/SearchWord' }
       responses:
         '200': { $ref: '#/components/responses/Success' }
         '409': { description: 版本或幂等键冲突 }
@@ -1362,7 +1365,8 @@ paths:
   /ops/words/publish:
     post:
       tags: [运营位/搜索推荐词]
-      summary: 发布已保存版本
+      summary: 发布推荐词配置
+      description: published 条目更新线上快照；新 draft 条目不发布，已有条目的 draft 编辑保留原线上版本。删除项在发布后移除。禁用、定时上下线字段保留供消费端判断，不按当前时间删除配置。
       x-implementation-status: implemented
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 200 } }
@@ -1752,6 +1756,29 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ValidationErrorEnvelope' }
   schemas:
+    SearchWord:
+      type: object
+      additionalProperties: false
+      required: [id, names, enabled, starts_at, ends_at]
+      properties:
+        id: { type: string, maxLength: 100 }
+        sort: { type: integer, minimum: 0, maximum: 2147483647, description: 原型顺序值；同值保持提交顺序。旧请求省略时按数组位置生成 }
+        status: { type: string, enum: [draft, published], description: 新前端应明确提交；旧请求省略时按 published 兼容原整份发布行为 }
+        names:
+          type: object
+          additionalProperties: false
+          required: [en, zh-Hans, zh-Hant, es, pt, id, th]
+          properties:
+            en: { type: string, minLength: 1, maxLength: 200 }
+            zh-Hans: { type: string, maxLength: 200 }
+            zh-Hant: { type: string, maxLength: 200 }
+            es: { type: string, maxLength: 200 }
+            pt: { type: string, maxLength: 200 }
+            id: { type: string, maxLength: 200 }
+            th: { type: string, maxLength: 200 }
+        enabled: { type: boolean }
+        starts_at: { type: integer, format: int64, nullable: true, description: Unix 秒，未设置为 null }
+        ends_at: { type: integer, format: int64, nullable: true, description: Unix 秒；两端均有值时必须大于 starts_at }
     IncentiveRevision:
       type: object
       required: [revision]

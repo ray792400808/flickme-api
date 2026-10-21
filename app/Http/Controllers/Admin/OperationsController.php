@@ -39,6 +39,9 @@ class OperationsController extends Controller
             $row = DB::table('operation_configs')->where($identity)->lockForUpdate()->first();
             $this->ensureCurrentRevision((int) $row->revision, $data['revision']);
             $this->validateDraft($resource, $data['draft'], json_decode($row->draft, true));
+            if ($resource === 'words') {
+                $data['draft'] = $this->normalizeWords($data['draft']);
+            }
             DB::table('operation_configs')->where('id', $row->id)->update(['draft' => json_encode($data['draft'], JSON_THROW_ON_ERROR), 'revision' => $row->revision + 1]);
             AdminMutation::audit($request, 'ops.save', implode(':', $identity), ['before' => json_decode($row->draft, true), 'after' => $data['draft'], 'revision' => $row->revision + 1]);
 
@@ -60,8 +63,11 @@ class OperationsController extends Controller
                 return $this->document($row);
             }
             $this->validateDraft($resource, json_decode($row->draft, true), json_decode($row->draft, true));
-            DB::table('operation_configs')->where('id', $row->id)->update(['published' => $row->draft, 'published_revision' => $row->revision, 'published_at' => now()->getTimestamp()]);
-            AdminMutation::audit($request, 'ops.publish', implode(':', $identity), ['before' => $row->published === null ? null : json_decode($row->published, true), 'after' => json_decode($row->draft, true), 'revision' => $row->revision]);
+            $published = $resource === 'words'
+                ? $this->publishWords(json_decode($row->draft, true), $row->published === null ? [] : json_decode($row->published, true))
+                : json_decode($row->draft, true);
+            DB::table('operation_configs')->where('id', $row->id)->update(['published' => json_encode($published, JSON_THROW_ON_ERROR), 'published_revision' => $row->revision, 'published_at' => now()->getTimestamp()]);
+            AdminMutation::audit($request, 'ops.publish', implode(':', $identity), ['before' => $row->published === null ? null : json_decode($row->published, true), 'after' => $published, 'revision' => $row->revision]);
 
             return $this->document(DB::table('operation_configs')->find($row->id));
         });
@@ -114,6 +120,9 @@ class OperationsController extends Controller
     private function document(object $row): array
     {
         $draft = json_decode($row->draft, true);
+        if ($row->resource === 'words') {
+            $draft = $this->normalizeWords($draft);
+        }
         if ($row->resource === 'hot') {
             $overrides = collect($draft['overrides'])->keyBy('drama_id');
             $draft['overrides'] = Drama::available()->orderByDesc('heat')->orderBy('id')->get()->map(fn (Drama $drama): array => [
@@ -126,11 +135,51 @@ class OperationsController extends Controller
         return ['revision' => (int) $row->revision, 'published_revision' => $row->published_revision === null ? null : (int) $row->published_revision, 'published_at' => $row->published_at === null ? null : (int) $row->published_at, 'draft' => $draft];
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $words
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeWords(array $words): array
+    {
+        foreach ($words as $index => &$word) {
+            $word['sort'] = isset($word['sort']) ? (int) $word['sort'] : $index + 1;
+            $word['status'] ??= 'published';
+        }
+        unset($word);
+        usort($words, fn (array $first, array $second): int => $first['sort'] <=> $second['sort']);
+
+        return $words;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $draft
+     * @param  array<int, array<string, mixed>>  $published
+     * @return array<int, array<string, mixed>>
+     */
+    private function publishWords(array $draft, array $published): array
+    {
+        $previous = array_column($this->normalizeWords($published), null, 'id');
+        $result = [];
+        foreach ($this->normalizeWords($draft) as $word) {
+            if ($word['status'] === 'published') {
+                $result[] = $word;
+            } elseif (isset($previous[$word['id']])) {
+                $result[] = $previous[$word['id']];
+            }
+        }
+
+        return $this->normalizeWords($result);
+    }
+
     private function validateDraft(string $resource, array $draft, array $previous): void
     {
         $rules = match ($resource) {
             'chips' => ['draft' => ['array', 'min:1'], 'draft.*' => ['array:id,key,type,names,enabled,locked,starts_at,ends_at'], 'draft.*.key' => ['required', 'string', 'distinct'], 'draft.*.type' => ['required', Rule::in(['system', 'tag'])], 'draft.*.locked' => ['required', 'boolean']],
-            'words' => ['draft.*' => ['array:id,names,enabled,starts_at,ends_at']],
+            'words' => [
+                'draft.*' => ['array:id,names,enabled,starts_at,ends_at,sort,status'],
+                'draft.*.sort' => ['sometimes', 'integer', 'min:0', 'max:2147483647'],
+                'draft.*.status' => ['sometimes', Rule::in(['draft', 'published'])],
+            ],
             'filters' => ['draft.*' => ['array:id,key,names,tag_keys,enabled'], 'draft.*.key' => ['required', 'string', 'distinct'], 'draft.*.tag_keys' => ['required', 'array', 'min:1'], 'draft.*.tag_keys.*' => ['required', 'string']],
             'recs' => ['draft' => ['array', 'size:5'], 'draft.*' => ['array:id,name,placement,source,count,fallback,pinned_drama_id,enabled'], 'draft.*.name' => ['required', 'string'], 'draft.*.placement' => ['required', 'string', 'distinct', Rule::in(self::PLACEMENTS)], 'draft.*.source' => ['required', Rule::in(['personalized', 'trending', 'similar', 'recent'])], 'draft.*.count' => ['required', 'integer', 'between:1,50'], 'draft.*.fallback' => ['required', Rule::in(['trending', 'none'])], 'draft.*.pinned_drama_id' => ['present', 'nullable', 'integer', 'min:1']],
             'hot' => ['draft' => ['array:pool_size,refresh_hours,short_count,stories_count,page_size,overrides'], 'draft.pool_size' => ['required', 'integer', 'between:1,1000'], 'draft.refresh_hours' => ['required', 'integer', Rule::in([1, 6, 24])], 'draft.short_count' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.stories_count' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.page_size' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.overrides' => ['present', 'array'], 'draft.overrides.*' => ['array:drama_id,title,heat,pinned,blocked'], 'draft.overrides.*.drama_id' => ['required', 'integer', 'min:1', 'distinct'], 'draft.overrides.*.pinned' => ['required', 'boolean'], 'draft.overrides.*.blocked' => ['required', 'boolean']],
