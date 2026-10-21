@@ -25,8 +25,8 @@ class ResponseUtil
     /**
      * 成功响应（HTTP 200）。
      *
-     * @param  mixed  $data 任意可序列化数据；为 null 时返回 "data": null
-     * @param  string $msg  业务文案，默认 ok
+     * @param  mixed  $data  任意可序列化数据；为 null 时返回 "data": null
+     * @param  string  $msg  业务文案，默认 ok
      */
     public static function success(mixed $data = null, string $msg = ResponseDef::MSG_SUCCESS): SymfonyResponse
     {
@@ -36,10 +36,10 @@ class ResponseUtil
     /**
      * 失败响应 —— 用预设的 code + msg。
      *
-     * @param  int    $code       业务码（见 App\Common\ResponseDef）
-     * @param  string $msg        业务文案
-     * @param  int    $httpStatus HTTP 状态码；默认与 $code 保持一致
-     * @param  mixed  $data       额外数据，比如校验失败时的 errors[]
+     * @param  int  $code  业务码（见 App\Common\ResponseDef）
+     * @param  string  $msg  业务文案
+     * @param  int  $httpStatus  HTTP 状态码；默认与 $code 保持一致
+     * @param  mixed  $data  额外数据，比如校验失败时的 errors[]
      */
     public static function error(int $code, string $msg, ?int $httpStatus = null, mixed $data = null): SymfonyResponse
     {
@@ -52,10 +52,10 @@ class ResponseUtil
     /**
      * 通用 JSON。
      *
-     * @param  int    $code       业务码（成功 = 200）
-     * @param  string $msg        业务文案
-     * @param  mixed  $data       业务载荷
-     * @param  int    $httpStatus HTTP 状态码
+     * @param  int  $code  业务码（成功 = 200）
+     * @param  string  $msg  业务文案
+     * @param  mixed  $data  业务载荷
+     * @param  int  $httpStatus  HTTP 状态码
      */
     public static function json(int $code, string $msg, mixed $data = null, int $httpStatus = 200): SymfonyResponse
     {
@@ -70,7 +70,7 @@ class ResponseUtil
     /**
      * 校验失败（HTTP 422）。
      *
-     * @param  array<string, array<int, string>>  $errors Laravel Validator::errors() 的结构
+     * @param  array<string, array<int, string>>  $errors  Laravel Validator::errors() 的结构
      */
     public static function validationFailed(array $errors, string $msg = ResponseDef::MSG_UNPROCESSABLE): SymfonyResponse
     {

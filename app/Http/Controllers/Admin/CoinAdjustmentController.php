@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Common\Constants;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AdminMutation;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 
 class CoinAdjustmentController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): Response
     {
-        $data = $request->validate(['uid' => ['nullable', 'string'], 'status' => ['nullable', Rule::in(['pending', 'approved', 'rejected'])], 'page' => ['integer', 'min:1'], 'per_page' => ['integer', 'min:1', 'max:100']]);
+        $data = $request->validate(['uid' => ['nullable', 'string'], 'status' => ['nullable', Rule::in(['pending', 'approved', 'rejected'])], 'page' => ['integer', 'min:1'], 'per_page' => ['integer', 'min:1', 'max:'.Constants::MAX_PAGE_SIZE]]);
         $query = DB::table('coin_adjustments');
         foreach (['uid', 'status'] as $key) {
             if (! empty($data[$key])) {
@@ -22,10 +23,10 @@ class CoinAdjustmentController extends Controller
             }
         }
 
-        return response()->json(['data' => $query->orderByDesc('created_at')->orderBy('id')->paginate($data['per_page'] ?? 10)->through(fn (object $row): array => $this->profile($request, $row))]);
+        return $this->success($query->orderByDesc('created_at')->orderBy('id')->paginate($data['per_page'] ?? Constants::DEFAULT_PAGE_SIZE)->through(fn (object $row): array => $this->profile($request, $row)));
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): Response
     {
         $data = $request->validate(['uid' => ['required', 'string'], 'currency' => ['required', Rule::in(['member_coins', 'bonus'])], 'amount' => ['required', 'integer', 'not_in:0', 'between:-'.config('wallet.adjustment_limit').','.config('wallet.adjustment_limit')], 'reason' => ['required', 'string', 'min:1', 'max:500']]);
         $result = AdminMutation::run($request, 'coin.create', function () use ($request, $data): array {
@@ -38,10 +39,10 @@ class CoinAdjustmentController extends Controller
             return $this->profile($request, DB::table('coin_adjustments')->find($id));
         });
 
-        return response()->json(['data' => $result], 201);
+        return $this->success($result);
     }
 
-    public function review(Request $request, int $id): JsonResponse
+    public function review(Request $request, int $id): Response
     {
         abort_unless($request->user()->role_key === 'admin', 403, '仅超级管理员拥有独立金币审核权限');
         $data = $request->validate(['decision' => ['required', Rule::in(['approve', 'reject'])], 'reason' => ['required_if:decision,reject', 'nullable', 'string', 'max:500'], 'version' => ['required', 'integer', 'min:1', 'max:9007199254740991']]);
@@ -66,7 +67,7 @@ class CoinAdjustmentController extends Controller
             return $this->profile($request, DB::table('coin_adjustments')->find($id));
         });
 
-        return response()->json(['data' => $result]);
+        return $this->success($result);
     }
 
     private function profile(Request $request, object $row): array

@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Common\Constants;
 use App\Http\Controllers\Controller;
 use App\Models\Drama;
 use App\Models\StoryCharacter;
 use App\Models\Tag;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 
 class ContentController extends Controller
 {
-    public function tags(Request $request): JsonResponse
+    public function tags(Request $request): Response
     {
         $this->authorizeRead($request);
         $data = $this->filters($request, ['active', 'disabled']);
@@ -27,41 +28,41 @@ class ContentController extends Controller
             $query->where('key', $data['tag_key']);
         }
 
-        return response()->json(['data' => $query->orderBy('key')->paginate($data['per_page'] ?? 10)->through(fn (Tag $tag): array => $this->tag($tag))]);
+        return $this->success($query->orderBy('key')->paginate($data['per_page'] ?? Constants::DEFAULT_PAGE_SIZE)->through(fn (Tag $tag): array => $this->tag($tag)));
     }
 
-    public function dramas(Request $request): JsonResponse
+    public function dramas(Request $request): Response
     {
         return $this->contents($request, Drama::query(), 'title');
     }
 
-    public function characters(Request $request): JsonResponse
+    public function characters(Request $request): Response
     {
         return $this->contents($request, StoryCharacter::query(), 'name');
     }
 
-    public function drama(Request $request, int $drama): JsonResponse
+    public function drama(Request $request, int $drama): Response
     {
         $this->authorizeRead($request);
 
-        return response()->json(['data' => $this->content(Drama::with('tags')->findOrFail($drama))]);
+        return $this->success($this->content(Drama::with('tags')->findOrFail($drama)));
     }
 
-    public function character(Request $request, int $character): JsonResponse
+    public function character(Request $request, int $character): Response
     {
         $this->authorizeRead($request);
 
-        return response()->json(['data' => $this->content(StoryCharacter::with('tags')->findOrFail($character))]);
+        return $this->success($this->content(StoryCharacter::with('tags')->findOrFail($character)));
     }
 
-    public function tagDetail(Request $request, int $tag): JsonResponse
+    public function tagDetail(Request $request, int $tag): Response
     {
         $this->authorizeRead($request);
 
-        return response()->json(['data' => $this->tag(Tag::findOrFail($tag))]);
+        return $this->success($this->tag(Tag::findOrFail($tag)));
     }
 
-    private function contents(Request $request, Builder $query, string $name): JsonResponse
+    private function contents(Request $request, Builder $query, string $name): Response
     {
         $this->authorizeRead($request);
         $data = $this->filters($request, ['published', 'draft', 'unpublished']);
@@ -80,12 +81,12 @@ class ContentController extends Controller
             }
         }
 
-        return response()->json(['data' => $query->with('tags')->orderBy('id')->paginate($data['per_page'] ?? 10)->through(fn (Model $record): array => $this->content($record))]);
+        return $this->success($query->with('tags')->orderBy('id')->paginate($data['per_page'] ?? Constants::DEFAULT_PAGE_SIZE)->through(fn (Model $record): array => $this->content($record)));
     }
 
     private function filters(Request $request, array $statuses): array
     {
-        return $request->validate(['q' => ['nullable', 'string', 'max:100'], 'tag_key' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::in($statuses)], 'available' => ['nullable', 'boolean'], 'page' => ['integer', 'min:1'], 'per_page' => ['integer', 'between:1,100']]);
+        return $request->validate(['q' => ['nullable', 'string', 'max:100'], 'tag_key' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::in($statuses)], 'available' => ['nullable', 'boolean'], 'page' => ['integer', 'min:1'], 'per_page' => ['integer', 'between:1,'.Constants::MAX_PAGE_SIZE]]);
     }
 
     private function search(Builder $query, array $data, string $name): void

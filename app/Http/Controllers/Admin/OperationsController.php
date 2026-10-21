@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Common\Constants;
+use App\Common\ResponseDef;
 use App\Http\Controllers\Controller;
 use App\Models\Drama;
 use App\Services\AdminMutation;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 
 class OperationsController extends Controller
 {
@@ -19,22 +22,22 @@ class OperationsController extends Controller
 
     private const PLACEMENTS = ['player_exit', 'related', 'following_trending', 'drama_similar', 'home_continue'];
 
-    public function show(Request $request, string $resource): JsonResponse
+    public function show(Request $request, string $resource): Response
     {
         $identity = $this->identity($request, $resource);
         $this->initialize($identity);
 
-        return response()->json(['data' => $this->document(DB::table('operation_configs')->where($identity)->first())]);
+        return $this->success($this->document(DB::table('operation_configs')->where($identity)->first()));
     }
 
-    public function update(Request $request, string $resource): JsonResponse
+    public function update(Request $request, string $resource): Response
     {
         $identity = $this->identity($request, $resource);
         $data = $request->validate(['revision' => ['required', 'integer', 'min:1', 'max:9007199254740991'], 'draft' => ['present', 'array']]);
         $this->initialize($identity);
         $result = DB::transaction(function () use ($request, $identity, $data, $resource): array {
             $row = DB::table('operation_configs')->where($identity)->lockForUpdate()->first();
-            abort_unless((int) $row->revision === $data['revision'], 409, '配置已更新，请刷新后重试');
+            $this->ensureCurrentRevision((int) $row->revision, $data['revision']);
             $this->validateDraft($resource, $data['draft'], json_decode($row->draft, true));
             DB::table('operation_configs')->where('id', $row->id)->update(['draft' => json_encode($data['draft'], JSON_THROW_ON_ERROR), 'revision' => $row->revision + 1]);
             AdminMutation::audit($request, 'ops.save', implode(':', $identity), ['before' => json_decode($row->draft, true), 'after' => $data['draft'], 'revision' => $row->revision + 1]);
@@ -42,17 +45,17 @@ class OperationsController extends Controller
             return $this->document(DB::table('operation_configs')->find($row->id));
         });
 
-        return response()->json(['data' => $result]);
+        return $this->success($result);
     }
 
-    public function publish(Request $request, string $resource): JsonResponse
+    public function publish(Request $request, string $resource): Response
     {
         $identity = $this->identity($request, $resource);
         $data = $request->validate(['revision' => ['required', 'integer', 'min:1', 'max:9007199254740991']]);
         $this->initialize($identity);
         $result = AdminMutation::run($request, 'ops.publish:'.implode(':', $identity), function () use ($request, $identity, $data, $resource): array {
             $row = DB::table('operation_configs')->where($identity)->lockForUpdate()->first();
-            abort_unless((int) $row->revision === $data['revision'], 409, '配置版本已过期，请刷新');
+            $this->ensureCurrentRevision((int) $row->revision, $data['revision']);
             if ($row->published_revision !== null && (int) $row->published_revision === $data['revision']) {
                 return $this->document($row);
             }
@@ -63,7 +66,18 @@ class OperationsController extends Controller
             return $this->document(DB::table('operation_configs')->find($row->id));
         });
 
-        return response()->json(['data' => $result]);
+        return $this->success($result);
+    }
+
+    private function ensureCurrentRevision(int $revision, int $expectedRevision): void
+    {
+        if ($revision !== $expectedRevision) {
+            throw new HttpResponseException($this->error(
+                ResponseDef::CODE_REVISION_STALE,
+                ResponseDef::MSG_REVISION_STALE,
+                ResponseDef::CODE_CONFLICT,
+            ));
+        }
     }
 
     private function identity(Request $request, string $resource): array
@@ -119,7 +133,7 @@ class OperationsController extends Controller
             'words' => ['draft.*' => ['array:id,names,enabled,starts_at,ends_at']],
             'filters' => ['draft.*' => ['array:id,key,names,tag_keys,enabled'], 'draft.*.key' => ['required', 'string', 'distinct'], 'draft.*.tag_keys' => ['required', 'array', 'min:1'], 'draft.*.tag_keys.*' => ['required', 'string']],
             'recs' => ['draft' => ['array', 'size:5'], 'draft.*' => ['array:id,name,placement,source,count,fallback,pinned_drama_id,enabled'], 'draft.*.name' => ['required', 'string'], 'draft.*.placement' => ['required', 'string', 'distinct', Rule::in(self::PLACEMENTS)], 'draft.*.source' => ['required', Rule::in(['personalized', 'trending', 'similar', 'recent'])], 'draft.*.count' => ['required', 'integer', 'between:1,50'], 'draft.*.fallback' => ['required', Rule::in(['trending', 'none'])], 'draft.*.pinned_drama_id' => ['present', 'nullable', 'integer', 'min:1']],
-            'hot' => ['draft' => ['array:pool_size,refresh_hours,short_count,stories_count,page_size,overrides'], 'draft.pool_size' => ['required', 'integer', 'between:1,1000'], 'draft.refresh_hours' => ['required', 'integer', Rule::in([1, 6, 24])], 'draft.short_count' => ['required', 'integer', 'between:1,100'], 'draft.stories_count' => ['required', 'integer', 'between:1,100'], 'draft.page_size' => ['required', 'integer', 'between:1,100'], 'draft.overrides' => ['present', 'array'], 'draft.overrides.*' => ['array:drama_id,title,heat,pinned,blocked'], 'draft.overrides.*.drama_id' => ['required', 'integer', 'min:1', 'distinct'], 'draft.overrides.*.pinned' => ['required', 'boolean'], 'draft.overrides.*.blocked' => ['required', 'boolean']],
+            'hot' => ['draft' => ['array:pool_size,refresh_hours,short_count,stories_count,page_size,overrides'], 'draft.pool_size' => ['required', 'integer', 'between:1,1000'], 'draft.refresh_hours' => ['required', 'integer', Rule::in([1, 6, 24])], 'draft.short_count' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.stories_count' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.page_size' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.overrides' => ['present', 'array'], 'draft.overrides.*' => ['array:drama_id,title,heat,pinned,blocked'], 'draft.overrides.*.drama_id' => ['required', 'integer', 'min:1', 'distinct'], 'draft.overrides.*.pinned' => ['required', 'boolean'], 'draft.overrides.*.blocked' => ['required', 'boolean']],
             'launch' => ['draft' => ['array:enabled,fallback_drama_id,cover_url,button_text'], 'draft.enabled' => ['required', 'boolean'], 'draft.fallback_drama_id' => ['present', 'nullable', 'integer', 'min:1'], 'draft.cover_url' => ['present', 'nullable', 'string', 'max:2048']],
         };
         if (in_array($resource, ['chips', 'words', 'filters', 'recs'], true)) {

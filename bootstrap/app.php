@@ -1,5 +1,9 @@
 <?php
 
+use App\Exceptions\Handler;
+use App\Http\Middleware\RequestLogMiddleware;
+use App\Http\Middleware\TraceIdMiddleware;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,17 +25,20 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->convertEmptyStringsToNull(except: [fn (Request $request): bool => $request->is('admin/v1/ops/*')]);
-        $middleware->trimStrings(except: [fn (Request $request): bool => $request->is('admin/v1/ops/*')]);
+        $middleware->convertEmptyStringsToNull(except: [fn (Request $request): bool => $request->is('admin/ops/*', 'admin/v1/ops/*')]);
+        $middleware->trimStrings(except: [fn (Request $request): bool => $request->is('admin/ops/*', 'admin/v1/ops/*')]);
 
         // 全局中间件
         $middleware->api(prepend: [
-            \App\Http\Middleware\TraceIdMiddleware::class,
-            \App\Http\Middleware\RequestLogMiddleware::class,
+            TraceIdMiddleware::class,
+            RequestLogMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request): bool => $request->is('v1/*', 'admin/*') || $request->expectsJson(),
         );
-    })->create();
+    })
+    ->withSingletons([
+        ExceptionHandler::class => Handler::class,
+    ])->create();

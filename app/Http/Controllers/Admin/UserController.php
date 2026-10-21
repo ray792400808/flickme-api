@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Common\Constants;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AdminMutation;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Response;
 
 class UserController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): Response
     {
-        $data = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::in(['active', 'banned'])], 'membership' => ['nullable', Rule::in(['none', 'weekly', 'monthly', 'yearly'])], 'page' => ['integer', 'min:1'], 'per_page' => ['integer', 'min:1', 'max:100']]);
+        $data = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'status' => ['nullable', Rule::in(['active', 'banned'])], 'membership' => ['nullable', Rule::in(['none', 'weekly', 'monthly', 'yearly'])], 'page' => ['integer', 'min:1'], 'per_page' => ['integer', 'min:1', 'max:'.Constants::MAX_PAGE_SIZE]]);
         $query = User::query();
         if (! empty($data['q'])) {
             $query->where('uid', $data['q']);
@@ -24,17 +25,17 @@ class UserController extends Controller
                 $query->where($key, $data[$key]);
             }
         }
-        $result = $query->orderBy('id')->paginate($data['per_page'] ?? 10)->through(fn (User $user): array => self::profile($user));
+        $result = $query->orderBy('id')->paginate($data['per_page'] ?? Constants::DEFAULT_PAGE_SIZE)->through(fn (User $user): array => self::profile($user));
 
-        return response()->json(['data' => $result]);
+        return $this->success($result);
     }
 
-    public function show(string $id): JsonResponse
+    public function show(string $id): Response
     {
-        return response()->json(['data' => self::profile(User::findOrFail($id))]);
+        return $this->success(self::profile(User::findOrFail($id)));
     }
 
-    public function status(Request $request, string $id): JsonResponse
+    public function status(Request $request, string $id): Response
     {
         $data = $request->validate(['status' => ['required', Rule::in(['active', 'banned'])], 'reason' => ['required', 'string', 'min:1', 'max:500'], 'version' => ['required', 'integer', 'min:1', 'max:9007199254740991']]);
         $result = DB::transaction(function () use ($request, $id, $data): array {
@@ -53,7 +54,7 @@ class UserController extends Controller
             return self::profile($user);
         });
 
-        return response()->json(['data' => $result]);
+        return $this->success($result);
     }
 
     public static function profile(User $user): array

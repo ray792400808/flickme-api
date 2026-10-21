@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Common\Constants;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -25,6 +26,7 @@ class TraceIdMiddleware
 
         // 将 trace_id 添加到响应头
         $response->headers->set('Trace-Id', $traceId);
+        $response->headers->set(Constants::HEADER_TRACE_ID, $traceId);
 
         return $response;
     }
@@ -36,7 +38,9 @@ class TraceIdMiddleware
     private function getTraceId(Request $request): string
     {
         // 1. 优先从请求header获取
-        $traceId = $request->header('Trace-Id');
+        $traceId = $request->header(Constants::HEADER_TRACE_ID)
+            ?: $request->header(Constants::HEADER_REQUEST_ID)
+            ?: $request->header('Trace-Id');
         if ($traceId) {
             return $traceId;
         }

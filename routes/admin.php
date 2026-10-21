@@ -6,8 +6,9 @@ use App\Http\Controllers\Admin\AdminOperationLogController;
 use App\Http\Controllers\Admin\AdminPermissionController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\IncentiveController;
+use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\SystemController;
-use App\Http\Controllers\Admin\UserController;
 use App\Http\Middleware\AuthenticateAdmin;
 use App\Http\Middleware\CheckAdminPermission;
 use App\Http\Middleware\LogAdminOperation;
@@ -38,6 +39,27 @@ Route::middleware([AuthenticateAdmin::class, LogAdminOperation::class])->group(f
     });
 
     Route::get('/session', [SystemController::class, 'session'])->name('session');
+    foreach (['check-in-rewards' => 'checkin', 'tasks' => 'tasks', 'watch-rewards' => 'watch'] as $path => $resource) {
+        Route::get('/'.$path, [IncentiveController::class, 'show'])->defaults('resource', $resource)
+            ->middleware(CheckAdminPermission::class.':tasks.view')->name('incentive.'.$resource.'.show');
+    }
+    Route::put('/check-in-rewards', [IncentiveController::class, 'saveCheckin'])->middleware(CheckAdminPermission::class.':tasks.edit')->name('incentive.checkin.save');
+    Route::put('/watch-rewards', [IncentiveController::class, 'saveWatch'])->middleware(CheckAdminPermission::class.':tasks.edit')->name('incentive.watch.save');
+    Route::post('/tasks', [IncentiveController::class, 'storeTask'])->middleware(CheckAdminPermission::class.':tasks.edit')->name('incentive.tasks.store');
+    Route::patch('/tasks/{task}', [IncentiveController::class, 'updateTask'])->middleware(CheckAdminPermission::class.':tasks.edit')->name('incentive.tasks.update');
+    Route::delete('/tasks/{task}', [IncentiveController::class, 'destroyTask'])->middleware(CheckAdminPermission::class.':tasks.edit')->name('incentive.tasks.destroy');
+    foreach (['check-in-rewards' => 'checkin', 'tasks' => 'tasks'] as $path => $resource) {
+        Route::post('/'.$path.'/publish', [IncentiveController::class, 'publish'])->defaults('resource', $resource)
+            ->middleware(CheckAdminPermission::class.':tasks.publish')->name('incentive.'.$resource.'.publish');
+    }
+    Route::prefix('ops')->name('ops.')->group(function (): void {
+        Route::get('/{resource}', [OperationsController::class, 'show'])
+            ->middleware(CheckAdminPermission::class.':ops.view')->name('show');
+        Route::put('/{resource}', [OperationsController::class, 'update'])
+            ->middleware(CheckAdminPermission::class.':ops.edit')->name('update');
+        Route::post('/{resource}/publish', [OperationsController::class, 'publish'])
+            ->middleware(CheckAdminPermission::class.':ops.publish')->name('publish');
+    });
     Route::get('/system/info', [SystemController::class, 'info'])
         ->middleware(CheckAdminPermission::class.':system.view')->name('system.info');
 

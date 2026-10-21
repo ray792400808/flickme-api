@@ -4,13 +4,16 @@ info:
   version: 1.0.0
   description: |
     Flickme 管理后台接口定义，可直接导入 Apifox。
+    已实现的运营位、业务用户、金币调整及内容查询接口统一响应为 code、message、data。
+    成功 code=200、message=ok；失败保留对应 HTTP 状态码，业务码见 ResponseDef。
+    请求体保留各接口业务字段，不添加 code/message/data 包装。校验错误位于 data.errors。
     所有绝对时间统一为 Unix 秒级整数时间戳（int64），未设置时间为 null。
     包括 created_at、updated_at、deleted_at、registered_at、published_at、expiresAt、starts_at、ends_at。
     前端显示：new Date(timestamp * 1000)；提交：Math.floor(date.getTime() / 1000)。
     `x-implementation-status: implemented` 表示当前 Laravel 项目已经实现；
     `planned` 表示根据 Flickme_Admin.html 原型规划、尚待开发。
 servers:
-  - url: http://localhost:8000/admin/v1
+  - url: http://localhost:8000/admin
     description: 本地开发环境
 security:
   - bearerAuth: []
@@ -882,66 +885,153 @@ paths:
   /check-in-rewards:
     get:
       tags: [激励任务/签到奖励]
-      summary: 获取七日签到奖励
-      x-implementation-status: planned
-      responses: { '200': { $ref: '#/components/responses/Success' } }
+      summary: 读取七日签到草稿和已发布配置
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     put:
       tags: [激励任务/签到奖励]
-      summary: 保存七日签到奖励
-      x-implementation-status: planned
-      requestBody: { $ref: '#/components/requestBodies/JsonArray' }
-      responses: { '200': { $ref: '#/components/responses/Success' } }
+      summary: 保存七日签到草稿（固定 CK1–CK7 和 Day 1–Day 7）
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckinSave' }
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /check-in-rewards/publish:
     post:
       tags: [激励任务/签到奖励]
-      summary: 发布签到奖励
-      x-implementation-status: planned
-      responses: { '200': { $ref: '#/components/responses/Success' } }
+      summary: 发布当前签到草稿（幂等）
+      x-implementation-status: implemented
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncentiveRevision' }
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /tasks:
     get:
       tags: [激励任务/任务配置]
-      summary: 激励任务列表
-      x-implementation-status: planned
-      parameters: [{ name: group, in: query, schema: { type: string } }]
-      responses: { '200': { $ref: '#/components/responses/Success' } }
+      summary: 读取任务草稿和已发布快照；group 仅筛选草稿
+      x-implementation-status: implemented
+      parameters:
+        - { name: group, in: query, schema: { type: string, enum: [新手任务, 观看任务, 日常任务] } }
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: 按任务名称搜索草稿，不区分大小写 }
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     post:
       tags: [激励任务/任务配置]
-      summary: 新建激励任务
-      x-implementation-status: planned
-      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
-      responses: { '201': { $ref: '#/components/responses/Created' } }
+      summary: 新增草稿任务，观看任务名称按 sec 自动生成
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncentiveTaskSave' }
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /tasks/{task}:
     patch:
       tags: [激励任务/任务配置]
-      summary: 修改激励任务
-      x-implementation-status: planned
+      summary: 部分修改草稿任务（非观看任务自动移除 sec）
+      x-implementation-status: implemented
       parameters: [{ $ref: '#/components/parameters/TaskId' }]
-      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
-      responses: { '200': { $ref: '#/components/responses/Success' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncentiveTaskPatch' }
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     delete:
       tags: [激励任务/任务配置]
-      summary: 删除激励任务
-      x-implementation-status: planned
+      summary: 从草稿删除任务；发布前不影响线上快照
+      x-implementation-status: implemented
       parameters: [{ $ref: '#/components/parameters/TaskId' }]
-      responses: { '200': { $ref: '#/components/responses/Deleted' } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncentiveRevision' }
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /tasks/publish:
     post:
       tags: [激励任务/任务配置]
-      summary: 发布激励任务配置
-      x-implementation-status: planned
-      responses: { '200': { $ref: '#/components/responses/Success' } }
+      summary: 发布完整任务草稿（幂等）
+      x-implementation-status: implemented
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncentiveRevision' }
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /watch-rewards:
     get:
       tags: [激励任务/实时观看奖励]
-      summary: 获取实时观看奖励配置
-      x-implementation-status: planned
-      responses: { '200': { $ref: '#/components/responses/Success' } }
+      summary: 读取实时观看奖励配置
+      x-implementation-status: implemented
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
     put:
       tags: [激励任务/实时观看奖励]
-      summary: 保存实时观看奖励配置
-      x-implementation-status: planned
-      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
-      responses: { '200': { $ref: '#/components/responses/Success' } }
+      summary: 保存实时观看配置并立即生效；不执行奖励入账
+      x-implementation-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WatchRewardSave' }
+      responses:
+        '200': { $ref: '#/components/responses/IncentiveSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: '版本过期 code=1003，或幂等键被不同请求使用' }
+        '422': { $ref: '#/components/responses/ValidationError' }
 
   /push-tasks:
     get:
@@ -1464,7 +1554,7 @@ paths:
                 amount: { type: integer, minimum: -1000000, maximum: 1000000, description: 非零整数 }
                 reason: { type: string, minLength: 1, maxLength: 500 }
       responses:
-        '201': { $ref: '#/components/responses/Created' }
+        '200': { $ref: '#/components/responses/Success' }
         '409': { description: 幂等键与请求内容冲突 }
   /coin-adjustments/{id}/review:
     post:
@@ -1590,6 +1680,16 @@ components:
               language: { type: string }
               effectiveAt: { type: integer, format: int64, description: Unix 秒级时间戳 }
   responses:
+    IncentiveSuccess:
+      description: 激励配置响应，时间均为 Unix 秒；初始 published 为 null，watch 保存立即生效
+      content:
+        application/json:
+          schema:
+            allOf:
+              - { $ref: '#/components/schemas/SuccessEnvelope' }
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/IncentiveDocument' }
     Success:
       description: 请求成功
       content:
@@ -1652,30 +1752,131 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ValidationErrorEnvelope' }
   schemas:
+    IncentiveRevision:
+      type: object
+      required: [revision]
+      properties:
+        revision: { type: integer, minimum: 1, description: 当前配置 revision；写入成功加 1，发布不加 1 }
+    CheckinDay:
+      type: object
+      additionalProperties: false
+      required: [id, day, reward]
+      properties:
+        id: { type: string, example: CK1 }
+        day: { type: string, example: Day 1 }
+        reward: { type: integer, minimum: 0, maximum: 1000000 }
+    CheckinSave:
+      allOf:
+        - { $ref: '#/components/schemas/IncentiveRevision' }
+        - type: object
+          required: [draft]
+          properties:
+            draft:
+              type: array
+              minItems: 7
+              maxItems: 7
+              items: { $ref: '#/components/schemas/CheckinDay' }
+    IncentiveTask:
+      type: object
+      additionalProperties: false
+      properties:
+        group: { type: string, enum: [新手任务, 观看任务, 日常任务] }
+        name: { type: string, maxLength: 200, description: 非观看任务必填；观看任务按 sec 自动生成 }
+        sec: { type: integer, minimum: 1, maximum: 86400, description: 观看任务必填；其他分组忽略并移除 }
+        reward: { type: integer, minimum: 0, maximum: 1000000 }
+        reset: { type: string, enum: [一次性, 每日] }
+        en: { type: boolean }
+    IncentiveTaskSave:
+      allOf:
+        - { $ref: '#/components/schemas/IncentiveRevision' }
+        - type: object
+          required: [task]
+          properties:
+            task:
+              allOf:
+                - { $ref: '#/components/schemas/IncentiveTask' }
+                - { required: [group, reward, reset, en] }
+    IncentiveTaskPatch:
+      allOf:
+        - { $ref: '#/components/schemas/IncentiveRevision' }
+        - type: object
+          required: [task]
+          properties:
+            task: { $ref: '#/components/schemas/IncentiveTask' }
+    WatchReward:
+      type: object
+      additionalProperties: false
+      required: [sec, coins, cap]
+      properties:
+        sec: { type: integer, minimum: 1, maximum: 86400, example: 5 }
+        coins: { type: integer, minimum: 1, maximum: 1000000, example: 2 }
+        cap: { type: integer, minimum: 1, maximum: 1000000, example: 600, description: 不小于 coins，仅限制实时奖励，不含任务奖励 }
+    WatchRewardSave:
+      allOf:
+        - { $ref: '#/components/schemas/IncentiveRevision' }
+        - type: object
+          required: [draft]
+          properties:
+            draft: { $ref: '#/components/schemas/WatchReward' }
+    IncentiveDocument:
+      type: object
+      required: [revision, published_revision, published_at, draft, published]
+      properties:
+        revision: { type: integer, example: 1 }
+        published_revision: { type: integer, nullable: true }
+        published_at: { type: integer, format: int64, nullable: true }
+        draft:
+          oneOf:
+            - { type: array, minItems: 7, maxItems: 7, items: { $ref: '#/components/schemas/CheckinDay' } }
+            - type: array
+              items:
+                type: object
+                required: [id, group, name, reward, reset, en]
+                properties:
+                  id: { type: string, description: 服务端生成的任务标识 }
+                  group: { type: string }
+                  name: { type: string }
+                  sec: { type: integer }
+                  reward: { type: integer }
+                  reset: { type: string }
+                  en: { type: boolean }
+            - { $ref: '#/components/schemas/WatchReward' }
+        published: { nullable: true, description: 最近一次发布的完整 draft 快照，未发布为 null }
     SuccessEnvelope:
       type: object
-      required: [data]
+      required: [code, message, data]
       properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: ok }
         data: { nullable: true }
     ErrorEnvelope:
       type: object
-      required: [message]
+      required: [code, message, data]
       properties:
+        code: { type: integer, example: 404 }
         message: { type: string }
+        data: { nullable: true }
     ValidationErrorEnvelope:
       type: object
-      required: [message, errors]
+      required: [code, message, data]
       properties:
+        code: { type: integer, example: 422 }
         message: { type: string }
-        errors:
+        data:
           type: object
-          additionalProperties:
-            type: array
-            items: { type: string }
+          required: [errors]
+          properties:
+            errors:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }
     PaginatedEnvelope:
       type: object
-      required: [data]
+      required: [code, message, data]
       properties:
+        code: { type: integer, example: 200 }
+        message: { type: string, example: ok }
         data:
           type: object
           required: [data, current_page, last_page, per_page, total]
