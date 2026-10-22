@@ -13,6 +13,12 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * 旧版内容库只读接口（保留给 /admin/v1 这套历史契约）。
+ *
+ * 字段命名沿用旧结构：tags.key、tags.status、dramas.status 等字符串值，
+ * 与新内容中台的 TagController / DramaController 互不影响。
+ */
 class ContentController extends Controller
 {
     public function tags(Request $request): Response
@@ -22,13 +28,13 @@ class ContentController extends Controller
         $query = Tag::query();
         $this->search($query, $data, 'name');
         if (isset($data['status'])) {
-            $query->where('status', $data['status']);
+            $query->where('status', $data['status'] === 'active' ? Tag::STATUS_ENABLED : Tag::STATUS_DISABLED);
         }
         if (isset($data['tag_key'])) {
-            $query->where('key', $data['tag_key']);
+            $query->where('code', $data['tag_key']);
         }
 
-        return $this->success($query->orderBy('key')->paginate($data['per_page'] ?? Constants::DEFAULT_PAGE_SIZE)->through(fn (Tag $tag): array => $this->tag($tag)));
+        return $this->success($query->orderBy('code')->paginate($data['per_page'] ?? Constants::DEFAULT_PAGE_SIZE)->through(fn (Tag $tag): array => $this->tag($tag)));
     }
 
     public function dramas(Request $request): Response
@@ -68,10 +74,10 @@ class ContentController extends Controller
         $data = $this->filters($request, ['published', 'draft', 'unpublished']);
         $this->search($query, $data, $name);
         if (isset($data['status'])) {
-            $query->where('status', $data['status']);
+            $query->where('status', $this->dramaStatus($data['status']));
         }
         if (isset($data['tag_key'])) {
-            $query->whereHas('tags', fn (Builder $tags): Builder => $tags->where('key', $data['tag_key']));
+            $query->whereHas('tags', fn (Builder $tags): Builder => $tags->where('code', $data['tag_key']));
         }
         if (! empty($data['available'])) {
             if ($query->getModel() instanceof Drama) {
@@ -82,6 +88,16 @@ class ContentController extends Controller
         }
 
         return $this->success($query->with('tags')->orderBy('id')->paginate($data['per_page'] ?? Constants::DEFAULT_PAGE_SIZE)->through(fn (Model $record): array => $this->content($record)));
+    }
+
+    /** 旧契约的字符串状态 → 新表的 tinyint */
+    private function dramaStatus(string $status): int
+    {
+        return match ($status) {
+            'published' => Drama::STATUS_PUBLISHED,
+            'draft' => Drama::STATUS_DRAFT,
+            default => Drama::STATUS_OFFLINE,
+        };
     }
 
     private function filters(Request $request, array $statuses): array
@@ -100,22 +116,32 @@ class ContentController extends Controller
 
     private function authorizeRead(Request $request): void
     {
-        $permissions = $request->user()->profile()['permissions'];
-        abort_unless(in_array($permissions['content'] ?? null, ['r', 'rw'], true) || in_array($permissions['ops'] ?? null, ['r', 'rw'], true), 403, '需要内容或运营读取权限');
+        // RBAC 重构后 AdminUser 没有 profile() 方法，改用统一的权限判定
+        $user = $request->user();
+        abort_unless($user && ($user->hasPermission('content.view') || $user->hasPermission('ops.view')), 403, '需要内容或运营读取权限');
     }
 
     private function tag(Tag $tag): array
     {
-        return ['id' => $tag->id, 'key' => $tag->key, 'name' => $tag->name, 'status' => $tag->status];
+        return ['id' => $tag->id, 'key' => $tag->code, 'name' => $tag->name, 'status' => $tag->status === Tag::STATUS_ENABLED ? 'active' : 'disabled'];
     }
 
     private function content(Model $record): array
     {
-        $result = ['id' => $record->id, 'name' => $record instanceof Drama ? $record->title : $record->name, 'status' => $record->status, 'cover_url' => $record->cover_url, 'tags' => $record->tags->map(fn (Tag $tag): array => $this->tag($tag))->all()];
+        $result = ['id' => $record->id, 'name' => $record instanceof Drama ? $record->title : $record->name, 'status' => $record instanceof Drama ? $this->statusLabel($record->status) : $record->status, 'cover_url' => $record->cover_url, 'tags' => $record->tags->map(fn (Tag $tag): array => $this->tag($tag))->all()];
         if ($record instanceof Drama) {
-            $result += ['title' => $record->title, 'is_playable' => $record->is_playable, 'video_url' => $record->video_url, 'heat' => $record->heat];
+            $result += ['title' => $record->title, 'is_playable' => $record->status === Drama::STATUS_PUBLISHED, 'video_url' => $record->video_url, 'heat' => $record->heat];
         }
 
         return $result;
+    }
+
+    private function statusLabel(int $status): string
+    {
+        return match ($status) {
+            Drama::STATUS_PUBLISHED => 'published',
+            Drama::STATUS_DRAFT => 'draft',
+            default => 'unpublished',
+        };
     }
 }

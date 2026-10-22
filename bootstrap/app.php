@@ -22,6 +22,20 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->prefix('admin')
                 ->name('admin.api.')
                 ->group(base_path('routes/admin.php'));
+
+            // 兼容旧版后台：早期后台接口挂在 /admin/v1 下，
+            // 前端已切到 /admin，但历史脚本与测试仍走 /admin/v1。
+            // 旧版内容库只读接口（tags.key / 字符串 status）单独放在 admin_legacy.php，
+            // 并且必须后注册，才能覆盖同名的新接口（RouteCollection 按 method+uri 唯一键存储）。
+            Route::middleware('api')
+                ->prefix('admin/v1')
+                ->name('admin.v1.api.')
+                ->group(base_path('routes/admin.php'));
+
+            Route::middleware('api')
+                ->prefix('admin/v1')
+                ->name('admin.v1.api.')
+                ->group(base_path('routes/admin_legacy.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

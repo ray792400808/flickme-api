@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\AdminAccount;
+use App\Models\AdminRole;
+use App\Models\AdminUser;
 use App\Models\Drama;
 use App\Models\StoryCharacter;
 use App\Models\Tag;
+use Database\Seeders\AdminSeeder;
 use Database\Seeders\DevelopmentContentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -16,15 +18,22 @@ class ContentLibraryTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // 运营位接口按 RBAC 校验权限，角色与权限码来自 AdminSeeder
+        $this->seed(AdminSeeder::class);
+    }
+
     public function test_soft_deleted_content_is_hidden_and_seeding_does_not_restore_it(): void
     {
         $this->seed(DevelopmentContentSeeder::class);
         $headers = $this->headers();
-        Tag::where('key', 'romance')->firstOrFail()->delete();
+        Tag::where('code', 'romance')->firstOrFail()->delete();
         Drama::findOrFail(1)->delete();
         StoryCharacter::findOrFail(1)->delete();
         $this->seed(DevelopmentContentSeeder::class);
-        $this->assertSoftDeleted('tags', ['key' => 'romance']);
+        $this->assertSoftDeleted('tags', ['code' => 'romance']);
         $this->assertSoftDeleted('dramas', ['id' => 1]);
         $this->assertSoftDeleted('story_characters', ['id' => 1]);
         $this->getJson('/admin/v1/dramas/1', $headers)->assertNotFound();
@@ -38,11 +47,15 @@ class ContentLibraryTest extends TestCase
         $this->putJson('/admin/v1/ops/chips?channel=short', ['revision' => 1, 'draft' => $chips], $headers)->assertUnprocessable();
     }
 
-    private function headers(string $role = 'admin'): array
+    private function headers(string $role = 'super_admin'): array
     {
-        $admin = AdminAccount::factory()->create(['role_key' => $role]);
+        $admin = AdminUser::factory()->create();
+        $roleId = AdminRole::query()->where('slug', $role)->value('id');
+        if ($roleId !== null) {
+            $admin->roles()->syncWithoutDetaching([$roleId]);
+        }
         $token = bin2hex(random_bytes(32));
-        Cache::put('admin:tokens:'.hash('sha256', $token), ['id' => $admin->id, 'version' => $admin->token_version], now()->addHour());
+        Cache::put($admin->tokenKey($token), ['id' => $admin->id, 'version' => $admin->tokenVersion()], now()->addHour());
 
         return ['Authorization' => 'Bearer '.$token, 'Idempotency-Key' => 'content-publish'];
     }
@@ -62,7 +75,7 @@ class ContentLibraryTest extends TestCase
         $this->assertCount(0, $drama->fresh()->tags);
         $this->assertDatabaseHas('operation_configs', ['channel' => 'short', 'revision' => 7]);
         $stories = json_decode(DB::table('operation_configs')->where('channel', 'stories')->value('draft'), true);
-        $this->assertSame('for_you', $stories[0]['key']);
+        $this->assertSame('for_you', $stories[0]['code']);
         $this->assertTrue($stories[0]['locked']);
         $this->assertCount(6, $stories);
     }
@@ -84,7 +97,7 @@ class ContentLibraryTest extends TestCase
     public function test_queries_support_ids_status_pagination_and_tag_filters(): void
     {
         $this->seed(DevelopmentContentSeeder::class);
-        $headers = $this->headers('ops');
+        $headers = $this->headers('operator');
         $this->getJson('/admin/v1/tags?status=active', $headers)->assertOk()->assertJsonPath('data.total', 5);
         $this->getJson('/admin/v1/dramas?tag_key=romance&available=1&per_page=100', $headers)->assertOk()->assertJsonPath('data.total', 3)->assertJsonPath('data.data.0.id', 1);
         $this->getJson('/admin/v1/dramas?status=draft', $headers)->assertOk()->assertJsonPath('data.total', 2);
@@ -93,8 +106,7 @@ class ContentLibraryTest extends TestCase
         $this->getJson('/admin/v1/characters/1', $headers)->assertOk();
         $this->getJson('/admin/v1/tags/2', $headers)->assertOk()->assertJsonPath('data.key', 'ceo');
         $this->getJson('/admin/v1/tags')->assertUnauthorized();
-        $this->getJson('/admin/v1/tags', $this->headers('finance'))->assertForbidden();
-        $this->getJson('/admin/v1/dramas?per_page=101', $headers)->assertUnprocessable();
+        $this->getJson('/admin/v1/tags', $this->headers('finance'))->assertForbidden();        $this->getJson('/admin/v1/dramas?per_page=101', $headers)->assertUnprocessable();
     }
 
     public function test_launch_and_recommendations_reject_unavailable_or_missing_drama(): void
@@ -109,7 +121,7 @@ class ContentLibraryTest extends TestCase
         }
         $draft['fallback_drama_id'] = 1;
         $this->putJson('/admin/v1/ops/launch', ['revision' => 1, 'draft' => $draft], $headers)->assertOk();
-        Drama::findOrFail(1)->update(['is_playable' => false]);
+        Drama::findOrFail(1)->update(['status' => Drama::STATUS_OFFLINE]);
         $this->postJson('/admin/v1/ops/launch/publish', ['revision' => 2], $headers)->assertUnprocessable();
         $recs = $this->getJson('/admin/v1/ops/recs', $headers)->assertOk()->json('data.draft');
         $recs[0]['pinned_drama_id'] = 7;
@@ -124,9 +136,9 @@ class ContentLibraryTest extends TestCase
         $headers = $this->headers();
         $draft = $this->getJson('/admin/v1/ops/chips?channel=short', $headers)->json('data.draft');
         $this->putJson('/admin/v1/ops/chips?channel=short', ['revision' => 1, 'draft' => $draft], $headers)->assertOk();
-        Tag::where('key', 'romance')->update(['status' => 'disabled']);
+        Tag::where('code', 'romance')->update(['status' => Tag::STATUS_DISABLED]);
         $this->putJson('/admin/v1/ops/chips?channel=short', ['revision' => 2, 'draft' => $draft], $headers)->assertUnprocessable();
-        $draft[1]['key'] = 'missing';
+        $draft[1]['code'] = 'missing';
         $this->putJson('/admin/v1/ops/chips?channel=short', ['revision' => 2, 'draft' => $draft], $headers)->assertUnprocessable();
     }
 

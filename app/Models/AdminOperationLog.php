@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AdminOperationLog extends Model
 {
-    use HasFactory, SoftDeletes, HasUnixTimestamps;
+    use HasFactory, HasUnixTimestamps, SoftDeletes;
 
     protected $table = 'admin_operation_logs';
 

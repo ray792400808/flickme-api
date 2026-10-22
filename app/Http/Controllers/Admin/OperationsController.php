@@ -6,7 +6,7 @@ use App\Common\Constants;
 use App\Common\ResponseDef;
 use App\Http\Controllers\Controller;
 use App\Models\Drama;
-use App\Services\AdminMutation;
+use App\Services\Admin\AdminMutation;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -101,7 +101,7 @@ class OperationsController extends Controller
     private function initialize(array $identity): void
     {
         $draft = match ($identity['resource']) {
-            'chips' => [['id' => 'for_you', 'key' => 'for_you', 'type' => 'system', 'names' => $this->names('For you', '推荐'), 'enabled' => true, 'locked' => true, 'starts_at' => null, 'ends_at' => null]],
+            'chips' => [['id' => 'for_you', 'code' => 'for_you', 'type' => 'system', 'names' => $this->names('For you', '推荐'), 'enabled' => true, 'locked' => true, 'starts_at' => null, 'ends_at' => null]],
             'hot' => ['pool_size' => 50, 'refresh_hours' => 1, 'short_count' => 9, 'stories_count' => 8, 'page_size' => 20, 'overrides' => []],
             'launch' => ['enabled' => false, 'fallback_drama_id' => null, 'cover_url' => '', 'button_text' => $this->names('Start Watching', '开始观看')],
             'recs' => array_map(fn (string $placement): array => ['id' => $placement, 'name' => $placement, 'placement' => $placement, 'source' => match ($placement) {
@@ -125,11 +125,16 @@ class OperationsController extends Controller
         }
         if ($row->resource === 'hot') {
             $overrides = collect($draft['overrides'])->keyBy('drama_id');
-            $draft['overrides'] = Drama::available()->orderByDesc('heat')->orderBy('id')->get()->map(fn (Drama $drama): array => [
-                'drama_id' => $drama->id, 'title' => $drama->title, 'heat' => $drama->heat,
-                'pinned' => (bool) ($overrides->get($drama->id)['pinned'] ?? false),
-                'blocked' => (bool) ($overrides->get($drama->id)['blocked'] ?? false),
-            ])->all();
+            // heat 已改为 Drama::getHeatAttribute() 派生值，不能再 orderBy('heat')，
+            // 改为取候选集后在内存里排序。
+            $draft['overrides'] = Drama::available()->orderBy('id')->get()
+                ->sortByDesc(fn (Drama $drama): int => $drama->heat)
+                ->values()
+                ->map(fn (Drama $drama): array => [
+                    'drama_id' => $drama->id, 'title' => $drama->title, 'heat' => $drama->heat,
+                    'pinned' => (bool) ($overrides->get($drama->id)['pinned'] ?? false),
+                    'blocked' => (bool) ($overrides->get($drama->id)['blocked'] ?? false),
+                ])->all();
         }
 
         return ['revision' => (int) $row->revision, 'published_revision' => $row->published_revision === null ? null : (int) $row->published_revision, 'published_at' => $row->published_at === null ? null : (int) $row->published_at, 'draft' => $draft];
@@ -174,13 +179,13 @@ class OperationsController extends Controller
     private function validateDraft(string $resource, array $draft, array $previous): void
     {
         $rules = match ($resource) {
-            'chips' => ['draft' => ['array', 'min:1'], 'draft.*' => ['array:id,key,type,names,enabled,locked,starts_at,ends_at'], 'draft.*.key' => ['required', 'string', 'distinct'], 'draft.*.type' => ['required', Rule::in(['system', 'tag'])], 'draft.*.locked' => ['required', 'boolean']],
+            'chips' => ['draft' => ['array', 'min:1'], 'draft.*' => ['array:id,code,type,names,enabled,locked,starts_at,ends_at'], 'draft.*.code' => ['required', 'string', 'distinct'], 'draft.*.type' => ['required', Rule::in(['system', 'tag'])], 'draft.*.locked' => ['required', 'boolean']],
             'words' => [
                 'draft.*' => ['array:id,names,enabled,starts_at,ends_at,sort,status'],
                 'draft.*.sort' => ['sometimes', 'integer', 'min:0', 'max:2147483647'],
                 'draft.*.status' => ['sometimes', Rule::in(['draft', 'published'])],
             ],
-            'filters' => ['draft.*' => ['array:id,key,names,tag_keys,enabled'], 'draft.*.key' => ['required', 'string', 'distinct'], 'draft.*.tag_keys' => ['required', 'array', 'min:1'], 'draft.*.tag_keys.*' => ['required', 'string']],
+            'filters' => ['draft.*' => ['array:id,code,names,tag_codes,enabled'], 'draft.*.code' => ['required', 'string', 'distinct'], 'draft.*.tag_codes' => ['required', 'array', 'min:1'], 'draft.*.tag_codes.*' => ['required', 'string']],
             'recs' => ['draft' => ['array', 'size:5'], 'draft.*' => ['array:id,name,placement,source,count,fallback,pinned_drama_id,enabled'], 'draft.*.name' => ['required', 'string'], 'draft.*.placement' => ['required', 'string', 'distinct', Rule::in(self::PLACEMENTS)], 'draft.*.source' => ['required', Rule::in(['personalized', 'trending', 'similar', 'recent'])], 'draft.*.count' => ['required', 'integer', 'between:1,50'], 'draft.*.fallback' => ['required', Rule::in(['trending', 'none'])], 'draft.*.pinned_drama_id' => ['present', 'nullable', 'integer', 'min:1']],
             'hot' => ['draft' => ['array:pool_size,refresh_hours,short_count,stories_count,page_size,overrides'], 'draft.pool_size' => ['required', 'integer', 'between:1,1000'], 'draft.refresh_hours' => ['required', 'integer', Rule::in([1, 6, 24])], 'draft.short_count' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.stories_count' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.page_size' => ['required', 'integer', 'between:1,'.Constants::MAX_PAGE_SIZE], 'draft.overrides' => ['present', 'array'], 'draft.overrides.*' => ['array:drama_id,title,heat,pinned,blocked'], 'draft.overrides.*.drama_id' => ['required', 'integer', 'min:1', 'distinct'], 'draft.overrides.*.pinned' => ['required', 'boolean'], 'draft.overrides.*.blocked' => ['required', 'boolean']],
             'launch' => ['draft' => ['array:enabled,fallback_drama_id,cover_url,button_text'], 'draft.enabled' => ['required', 'boolean'], 'draft.fallback_drama_id' => ['present', 'nullable', 'integer', 'min:1'], 'draft.cover_url' => ['present', 'nullable', 'string', 'max:2048']],
@@ -210,16 +215,16 @@ class OperationsController extends Controller
                     } else {
                         $this->ensure(! $item['locked'], "draft.$i.locked", '仅首个分类可锁定');
                         if ($item['type'] === 'system') {
-                            $this->ensure(in_array($item['key'], ['explore'], true), "draft.$i.key", '不支持的系统分类');
+                            $this->ensure(in_array($item['code'], ['explore'], true), "draft.$i.code", '不支持的系统分类');
                         } else {
-                            $this->reference('tags', 'key', $item['key'], "draft.$i.key");
+                            $this->reference('tags', 'code', $item['code'], "draft.$i.code");
                         }
                     }
                 }
                 if ($resource === 'filters') {
-                    $this->ensure(count($item['tag_keys']) === count(array_unique($item['tag_keys'])), "draft.$i.tag_keys", '标签不能重复');
-                    foreach ($item['tag_keys'] as $key) {
-                        $this->reference('tags', 'key', $key, "draft.$i.tag_keys");
+                    $this->ensure(count($item['tag_codes']) === count(array_unique($item['tag_codes'])), "draft.$i.tag_codes", '标签不能重复');
+                    foreach ($item['tag_codes'] as $code) {
+                        $this->reference('tags', 'code', $code, "draft.$i.tag_codes");
                     }
                 }
             }
@@ -266,9 +271,9 @@ class OperationsController extends Controller
         $query = DB::table($table)->where($column, $value)->whereNull('deleted_at');
         if ($table === 'dramas') {
             $this->ensure(Schema::hasColumn($table, 'status'), $field, '剧集库缺少可播放状态');
-            $query->where('status', 'published')->where('is_playable', true)->whereNotNull('video_url')->where('video_url', '!=', '');
+            $query->where('status', 1);
         } elseif ($table === 'tags') {
-            $query->where('status', 'active');
+            $query->where('status', 1);
         }
         $this->ensure($query->exists(), $field, '引用不存在或不可用');
     }

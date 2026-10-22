@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AdminPermission extends Model
 {
-    use HasFactory, SoftDeletes, HasUnixTimestamps;
+    use HasFactory, HasUnixTimestamps, SoftDeletes;
 
     protected $table = 'admin_permissions';
 

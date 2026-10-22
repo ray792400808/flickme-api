@@ -7,7 +7,7 @@ use App\Models\AdminPermission;
 use App\Models\AdminRole;
 use App\Models\AdminUser;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -26,6 +26,8 @@ class AdminSeeder extends Seeder
         'menu' => ['name' => '菜单管理', 'actions' => ['view', 'create', 'edit', 'delete']],
         'log' => ['name' => '操作日志', 'actions' => ['view', 'delete']],
         'system' => ['name' => '系统设置', 'actions' => ['view']],
+        'ops' => ['name' => '运营位', 'actions' => ['view', 'edit', 'publish']],
+        'content' => ['name' => '内容管理', 'actions' => ['view', 'create', 'edit', 'delete']],
     ];
 
     private const ACTION_LABELS = [
@@ -58,7 +60,7 @@ class AdminSeeder extends Seeder
     /**
      * 生成模块 + 动作两级权限树
      *
-     * @return \Illuminate\Support\Collection<int, AdminPermission>
+     * @return Collection<int, AdminPermission>
      */
     private function seedPermissions()
     {
@@ -109,6 +111,8 @@ class AdminSeeder extends Seeder
         );
         $operator->permissions()->sync($codes([
             'user.view', 'role.view', 'menu.view', 'log.view',
+            'ops.view', 'ops.edit', 'ops.publish',
+            'content.view', 'content.create', 'content.edit', 'content.delete',
         ]));
 
         // 客服：仅用户查看

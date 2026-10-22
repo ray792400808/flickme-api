@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Common\ResponseDef;
 use App\Common\ResponseUtil;
+use Illuminate\Foundation\Validation\ValidatesRequests;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
@@ -15,6 +16,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 abstract class Controller
 {
+    // 提供 $this->validate() / $this->validated() 等表单校验能力
+    use ValidatesRequests;
+
     /** 成功响应 */
     protected function success(mixed $data = null, string $msg = ResponseDef::MSG_SUCCESS): HttpResponse
     {
@@ -24,9 +28,9 @@ abstract class Controller
     /**
      * 失败响应。
      *
-     * @param  int    $code      业务码（见 App\Common\ResponseDef）
-     * @param  string $msg       业务文案
-     * @param  int    $httpStatus HTTP 状态码
+     * @param  int  $code  业务码（见 App\Common\ResponseDef）
+     * @param  string  $msg  业务文案
+     * @param  int  $httpStatus  HTTP 状态码
      */
     protected function error(
         int $code,

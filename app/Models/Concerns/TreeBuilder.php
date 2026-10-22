@@ -10,24 +10,22 @@ trait TreeBuilder
     /**
      * 将扁平数据转换为树形结构
      *
-     * @param  \Illuminate\Support\Collection|array  $data
-     * @param  int|null  $parentId
-     * @return \Illuminate\Support\Collection
+     * @param  SupportCollection|array  $data
      */
-    public static function buildTree($data, int $parentId = null): SupportCollection
+    public static function buildTree($data, ?int $parentId = null): SupportCollection
     {
         $tree = collect();
 
         foreach ($data as $item) {
             if ($item['parent_id'] === $parentId) {
                 $children = self::buildTree($data, $item['id']);
-                
+
                 $node = collect($item);
-                
+
                 if ($children->isNotEmpty()) {
                     $node->put('children', $children);
                 }
-                
+
                 $tree->push($node);
             }
         }
@@ -37,15 +35,12 @@ trait TreeBuilder
 
     /**
      * 获取树形结构（从数据库）
-     *
-     * @param  int|null  $parentId
-     * @return \Illuminate\Database\Eloquent\Collection
      */
-    public static function tree(int $parentId = null): Collection
+    public static function tree(?int $parentId = null): Collection
     {
         $data = self::orderBy('order')
             ->get()
-            ->map(fn($item) => [
+            ->map(fn ($item) => [
                 'id' => $item->id,
                 'parent_id' => $item->parent_id,
                 'order' => $item->order,
@@ -58,8 +53,6 @@ trait TreeBuilder
 
     /**
      * 获取所有后代ID
-     *
-     * @return array
      */
     public function getDescendantIds(): array
     {
@@ -76,8 +69,6 @@ trait TreeBuilder
 
     /**
      * 获取所有祖先ID
-     *
-     * @return array
      */
     public function getAncestorIds(): array
     {
@@ -94,9 +85,6 @@ trait TreeBuilder
 
     /**
      * 获取完整路径名称
-     *
-     * @param  string  $separator
-     * @return string
      */
     public function getFullPath(string $separator = ' / '): string
     {

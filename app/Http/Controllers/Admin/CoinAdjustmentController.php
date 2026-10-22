@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Common\Constants;
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\AdminMutation;
+use App\Services\Admin\AdminMutation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;

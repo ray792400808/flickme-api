@@ -14,7 +14,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AdminSeeder::class,
             BusinessMenuSeeder::class,
+            ContentMenuSeeder::class,
             IncentiveSeeder::class,
+            LanguageSeeder::class,
+            BadgeSeeder::class,
+            TagSeeder::class,
         ]);
     }
 }

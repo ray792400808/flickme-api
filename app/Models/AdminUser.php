@@ -9,11 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
 
 class AdminUser extends Model
 {
-    use HasFactory, SoftDeletes, HasUnixTimestamps;
+    use HasFactory, HasUnixTimestamps, SoftDeletes;
 
     protected $table = 'admin_users';
 
@@ -112,9 +111,9 @@ class AdminUser extends Model
         return AdminMenu::query()
             ->where(function ($q) use ($codes) {
                 $q->whereNull('permission_id')
-                  ->orWhereIn('permission_id', function ($sub) use ($codes) {
-                      $sub->select('id')->from('admin_permissions')->whereIn('code', $codes);
-                  });
+                    ->orWhereIn('permission_id', function ($sub) use ($codes) {
+                        $sub->select('id')->from('admin_permissions')->whereIn('code', $codes);
+                    });
             })
             ->pluck('id')
             ->all();

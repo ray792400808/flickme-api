@@ -6,9 +6,13 @@ use App\Http\Controllers\Admin\AdminOperationLogController;
 use App\Http\Controllers\Admin\AdminPermissionController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\BadgeController;
+use App\Http\Controllers\Admin\DramaController;
 use App\Http\Controllers\Admin\IncentiveController;
+use App\Http\Controllers\Admin\LanguageController;
 use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\SystemController;
+use App\Http\Controllers\Admin\TagController;
 use App\Http\Middleware\AuthenticateAdmin;
 use App\Http\Middleware\CheckAdminPermission;
 use App\Http\Middleware\LogAdminOperation;
@@ -16,10 +20,10 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| 后台管理接口  /admin
+| 氓聬聨氓聫掳莽庐隆莽聬聠忙聨楼氓聫拢  /admin
 |--------------------------------------------------------------------------
-| 每个写操作都绑定一个按钮级权限码（module.action），
-| �?admin_permissions 表一一对应，前端用同一套码控制按钮显隐�?*/
+| 忙炉聫盲赂陋氓聠聶忙聯聧盲陆聹茅聝陆莽禄聭氓庐職盲赂聙盲赂陋忙聦聣茅聮庐莽潞搂忙聺聝茅聶聬莽聽聛茂录聢module.action茂录聣茂录聦
+| 茂驴陆?admin_permissions 猫隆篓盲赂聙盲赂聙氓炉鹿氓潞聰茂录聦氓聣聧莽芦炉莽聰篓氓聬聦盲赂聙氓楼聴莽聽聛忙聨搂氓聢露忙聦聣茅聮庐忙聵戮茅職聬茂驴陆?*/
 
 Route::get('/health', [SystemController::class, 'health'])->name('health');
 
@@ -29,7 +33,7 @@ Route::prefix('auth')->group(function (): void {
 
 Route::middleware([AuthenticateAdmin::class, LogAdminOperation::class])->group(function (): void {
 
-    // ---------- 当前登录�?----------
+    // ---------- 氓陆聯氓聣聧莽聶禄氓陆聲茂驴陆?----------
     Route::prefix('auth')->group(function (): void {
         Route::get('/me', [AdminAuthController::class, 'me'])->name('auth.me');
         Route::get('/menus', [AdminAuthController::class, 'menus'])->name('auth.menus');
@@ -63,7 +67,7 @@ Route::middleware([AuthenticateAdmin::class, LogAdminOperation::class])->group(f
     Route::get('/system/info', [SystemController::class, 'info'])
         ->middleware(CheckAdminPermission::class.':system.view')->name('system.info');
 
-    // ---------- 用户管理 ----------
+    // ---------- 莽聰篓忙聢路莽庐隆莽聬聠 ----------
     Route::prefix('users')->name('users.')->group(function (): void {
         Route::get('/', [AdminUserController::class, 'index'])
             ->middleware(CheckAdminPermission::class.':user.view')->name('index');
@@ -81,7 +85,7 @@ Route::middleware([AuthenticateAdmin::class, LogAdminOperation::class])->group(f
             ->middleware(CheckAdminPermission::class.':user.edit')->name('force-logout');
     });
 
-    // ---------- 角色管理 ----------
+    // ---------- 猫搂聮猫聣虏莽庐隆莽聬聠 ----------
     Route::prefix('roles')->name('roles.')->group(function (): void {
         Route::get('/', [AdminRoleController::class, 'index'])
             ->middleware(CheckAdminPermission::class.':role.view')->name('index');
@@ -97,7 +101,7 @@ Route::middleware([AuthenticateAdmin::class, LogAdminOperation::class])->group(f
             ->middleware(CheckAdminPermission::class.':role.view')->name('users');
     });
 
-    // ---------- 权限管理 ----------
+    // ---------- 忙聺聝茅聶聬莽庐隆莽聬聠 ----------
     Route::prefix('permissions')->name('permissions.')->group(function (): void {
         Route::get('/', [AdminPermissionController::class, 'index'])
             ->middleware(CheckAdminPermission::class.':permission.view')->name('index');
@@ -116,7 +120,7 @@ Route::middleware([AuthenticateAdmin::class, LogAdminOperation::class])->group(f
             ->middleware(CheckAdminPermission::class.':permission.delete')->name('destroy');
     });
 
-    // ---------- 菜单管理 ----------
+    // ---------- 猫聫聹氓聧聲莽庐隆莽聬聠 ----------
     Route::prefix('menus')->name('menus.')->group(function (): void {
         Route::get('/', [AdminMenuController::class, 'index'])
             ->middleware(CheckAdminPermission::class.':menu.view')->name('index');
@@ -134,7 +138,7 @@ Route::middleware([AuthenticateAdmin::class, LogAdminOperation::class])->group(f
             ->middleware(CheckAdminPermission::class.':menu.delete')->name('destroy');
     });
 
-    // ---------- 操作日志 ----------
+    // ---------- 忙聯聧盲陆聹忙聴楼氓驴聴 ----------
     Route::prefix('operation-logs')->name('logs.')->group(function (): void {
         Route::get('/', [AdminOperationLogController::class, 'index'])
             ->middleware(CheckAdminPermission::class.':log.view')->name('index');
@@ -145,4 +149,79 @@ Route::middleware([AuthenticateAdmin::class, LogAdminOperation::class])->group(f
         Route::delete('/{log}', [AdminOperationLogController::class, 'destroy'])
             ->middleware(CheckAdminPermission::class.':log.delete')->name('destroy');
     });
+
+    // ---------- 璇█绠＄悊 ----------
+    Route::prefix('languages')->name('languages.')->group(function (): void {
+        Route::get('/', [LanguageController::class, 'index'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('index');
+        Route::post('/', [LanguageController::class, 'store'])
+            ->middleware(CheckAdminPermission::class.':content.create')->name('store');
+        Route::get('/options', [LanguageController::class, 'options'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('options');
+        Route::get('/{language}', [LanguageController::class, 'show'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('show');
+        Route::patch('/{language}', [LanguageController::class, 'update'])
+            ->middleware(CheckAdminPermission::class.':content.edit')->name('update');
+        Route::delete('/{language}', [LanguageController::class, 'destroy'])
+            ->middleware(CheckAdminPermission::class.':content.delete')->name('destroy');
+    });
+
+    // ---------- 瑙掓爣绠＄悊 ----------
+    Route::prefix('badges')->name('badges.')->group(function (): void {
+        Route::get('/', [BadgeController::class, 'index'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('index');
+        Route::post('/', [BadgeController::class, 'store'])
+            ->middleware(CheckAdminPermission::class.':content.create')->name('store');
+        Route::get('/options', [BadgeController::class, 'options'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('options');
+        Route::get('/{badge}', [BadgeController::class, 'show'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('show');
+        Route::patch('/{badge}', [BadgeController::class, 'update'])
+            ->middleware(CheckAdminPermission::class.':content.edit')->name('update');
+        Route::delete('/{badge}', [BadgeController::class, 'destroy'])
+            ->middleware(CheckAdminPermission::class.':content.delete')->name('destroy');
+    });
+
+    // ---------- 鏍囩涓庡悎闆?----------
+    Route::prefix('tags')->name('tags.')->group(function (): void {
+        Route::get('/', [TagController::class, 'index'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('index');
+        Route::post('/', [TagController::class, 'store'])
+            ->middleware(CheckAdminPermission::class.':content.create')->name('store');
+        Route::get('/options', [TagController::class, 'options'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('options');
+        Route::get('/stats', [TagController::class, 'stats'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('stats');
+        Route::get('/{tag}', [TagController::class, 'show'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('show');
+        Route::patch('/{tag}', [TagController::class, 'update'])
+            ->middleware(CheckAdminPermission::class.':content.edit')->name('update');
+        Route::delete('/{tag}', [TagController::class, 'destroy'])
+            ->middleware(CheckAdminPermission::class.':content.delete')->name('destroy');
+    });
+
+    // ---------- 鍓у簱 ----------
+    Route::prefix('dramas')->name('dramas.')->group(function (): void {
+        Route::get('/', [DramaController::class, 'index'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('index');
+        Route::post('/', [DramaController::class, 'store'])
+            ->middleware(CheckAdminPermission::class.':content.create')->name('store');
+        Route::get('/{drama}', [DramaController::class, 'show'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('show');
+        Route::patch('/{drama}', [DramaController::class, 'update'])
+            ->middleware(CheckAdminPermission::class.':content.edit')->name('update');
+        Route::delete('/{drama}', [DramaController::class, 'destroy'])
+            ->middleware(CheckAdminPermission::class.':content.delete')->name('destroy');
+        Route::get('/{drama}/episodes', [DramaController::class, 'episodes'])
+            ->middleware(CheckAdminPermission::class.':content.view')->name('episodes');
+        Route::post('/{drama}/episodes', [DramaController::class, 'storeEpisode'])
+            ->middleware(CheckAdminPermission::class.':content.create')->name('store-episode');
+        Route::patch('/{drama}/episodes/{episode}', [DramaController::class, 'updateEpisode'])
+            ->middleware(CheckAdminPermission::class.':content.edit')->name('update-episode');
+        Route::delete('/{drama}/episodes/{episode}', [DramaController::class, 'destroyEpisode'])
+            ->middleware(CheckAdminPermission::class.':content.delete')->name('destroy-episode');
+    });
+
+    // 旧版内容库只读接口（tags.key / 字符串 status）已迁移到 routes/admin_legacy.php,
+    // 且只挂载在 /admin/v1 前缀下,避免与新的内容中台接口(/admin)同名 URI 互相覆盖.
 });

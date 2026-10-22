@@ -2,7 +2,6 @@
 
 namespace App\Services\Admin;
 
-use App\Models\AdminOperationLog;
 use App\Models\AdminRole;
 use App\Models\AdminUser;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;

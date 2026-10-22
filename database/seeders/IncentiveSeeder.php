@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\AdminPermission;
-use App\Services\IncentiveConfig;
+use App\Services\Admin\IncentiveConfig;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
