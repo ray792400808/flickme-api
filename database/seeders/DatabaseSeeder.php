@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             LanguageSeeder::class,
             BadgeSeeder::class,
             TagSeeder::class,
+            NavigationMenuSeeder::class,
         ]);
     }
 }
